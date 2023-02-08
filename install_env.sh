@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# to create gff from gtf
-conda create -n cufflinks -c bioconda python=3.6  cufflinks=2.2.1
-
 # for RNAseq analysis:
 conda create --name RNAseq python=3.9
 # OR in a specific location
@@ -26,7 +23,7 @@ if [ -z ${CONDA_ACTIVATE} ]; then
 fi
 
 # OR in a specific location
-conda install --update-deps cutadapt fastqc wiggletools -c bioconda -c conda-forge
+conda install --update-deps cutadapt fastqc wiggletools fastp -c bioconda -c conda-forge
 conda install --update-deps -c bioconda htslib samtools bcftools ucsc-wigtobigwig gffread 
 #conda install --update-deps -c conda-forge ncurses
 
