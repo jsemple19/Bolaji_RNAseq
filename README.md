@@ -60,15 +60,15 @@ Place all desired .fastq.gz files in a folder and create a <fastqList>.csv with 
  
 If you have PE sequencing, use the following headers:
     
-    #fastqFile1,fastqFile2,sampleID,strain,AIDgene,TIR1,Auxin,Drug
+    #fastqFile1,fastqFile2,sampleName,strain,AIDgene,TIR1,Auxin,Drug
     
-Names of the fastqFiles (with full path) and the sampleID (sampleID must be unique to each row) are essential for mapping. The other fields are used by DESeq2 to create appropriate comparison groupings and can be changed according to your data.
+Names of the fastqFiles (with full path) and the sampleName (sampleName must be unique to each row) are essential for mapping. The other fields are used by DESeq2 to create appropriate comparison groupings and can be changed according to your data.
 
 ### 1.1 Map RNA-seq reads
 
-Open the _01_mapRNA.sh file and change the #SBATCH --array=1-24%5 line to reflect the number of samples in your <fastqList>.csv file (here 24 files which will be processed in batches of 5 so as not to overload the server).
+Open the _01_mapRNA.sh file and change the #SBATCH --array=1-24%5 line to reflect the number of samples in your fastqList.csv file (here 24 files which will be processed in batches of 5 so as not to overload the server).
 
-Make sure fastqFileList variable is set to your <fastqList>.csv file name
+Make sure fastqFileList variable is set to your fastqList.csv file name
 Make sure the genomeVer and GENOME_DIR variables are correctly set (same as in the indexing script)
 
 In SLURM environment use the following command:
