@@ -29,6 +29,11 @@ Python Miniconda installation if needed:
     # to use conda with bash shell 
     conda init
 ```
+Add a CONDA_ACTIVATE variable pointing to conda activate binary in your ~/.bashrc script, as it doesn't always work in SLURM environment:
+
+```
+echo "export CONDA_ACTIVATE=${HOME}/miniconda3/bin/activate" > ~/.bashrc
+```
 
 ### 0.3. Install environment:
 
