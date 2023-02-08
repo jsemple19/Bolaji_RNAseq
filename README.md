@@ -56,46 +56,28 @@ run script:
 
 Place all desired .fastq.gz files in a folder and create a <fastqList>.csv with the column structure:
 
-    #fastqFile,lane,sampleID,strain,AIDgene,TIR1,Auxin,Drug
-
-and as row properly list your files or interest. Normally this is a selection from the file sampleList.csv
-
+    #fastqFile,sampleID,strain,AIDgene,TIR1,Auxin,Drug
+ 
+If you have PE sequencing, use the following headers:
+    
+    #fastqFile1,fastqFile2,sampleID,strain,AIDgene,TIR1,Auxin,Drug
+    
+Names of the fastqFiles (with full path) and the sampleID (sampleID must be unique to each row) are essential for mapping. The other fields are used by DESeq2 to create appropriate comparison groupings and can be changed according to your data.
 
 ### 1.1 Map RNA-seq reads
-Go into the src file to run the scripts.
 
-```
-cd src
-```
+Open the _01_mapRNA.sh file and change the #SBATCH --array=1-24%5 line to reflect the number of samples in your <fastqList>.csv file (here 24 files which will be processed in batches of 5 so as not to overload the server).
+
+Make sure fastqFileList variable is set to your <fastqList>.csv file name
+Make sure the genomeVer and GENOME_DIR variables are correctly set (same as in the indexing script)
 
 In SLURM environment use the following command:
 
-    sbatch --array=1-<number of fastq files>%<max number of simultaneously running jobs> sbatch_01_mapRNAreads.sh <fastqList.csv>
-
-Examples run:
-    
-    # all
-    sbatch  --array=1-18%9 sbatch_01_mapRNAreads.sh ./data/fastqList_t-all_ringo_kingston.csv
-    # single one or selected
-    sbatch  --array=7,8 sbatch_01_mapRNAreads.sh ./data/fastqList_t-all_ringo_kingston.csv
-
-In a Unix shell console (Mac/Linux) without SLURM you can use the following command:
-
-    <oath>/run_01_mapRNAreads.sh <fastqList.csv> <outpuFolder>
-
-It will run for all fastq files in the list (<fastqList.csv>)
-
-Example:
-
-    ./src/run_01_mapRNAreads.sh ./data/ceFTALL_fastqList.csv ./out
-
-Optionally for a single fastq file, you can use:
-    
-    <oath>/_01_mapRNAreads.sh <fastqList.csv> <outpuFolder> <fastq number==line number -1>
-    
+```
+sbatch _01_mapRNAreads.sh 
+```    
 
 ### 1.1 Differential Expression (DESeq) analysis
-
 
 
 In SLURM environment, start differential expression analysis with the command: 
@@ -120,3 +102,4 @@ Error message:
 Sometimes it's just enough to activate manually the environment before running a sbatch script:
     conda activate ceftall
 
+If you have errors with the R library installation you might have a clash of versions - you might need to remove the the libraries in the .libPaths() location and reinstall.
