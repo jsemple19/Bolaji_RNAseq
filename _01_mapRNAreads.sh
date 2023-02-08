@@ -19,14 +19,30 @@ echo "current git version"
 git log -1 --format="%H"
 
 
+###############################
+########### VARIABLES #########
+###############################
+
 # table of fastqFiles
 fastqFileList=./fastqList.csv
 echo "this is $fastqFileList"
-# The following command is useful. realpath simplfies relative paths and paste puts paired end reads in columns:
+# The following command can be useful increating this file. realpath simplfies relative paths and paste puts paired end reads in columns:
 # realpath ../../bisiaka/RNAseq/rawdata/X204SC21091961-Z01-F002/raw_data/*/*.fq.gz | paste -d"," - - > fastqFiles.csv
 # then add the sampleID from the folder name:
 # cut -d"/" -f10 fastqFiles.csv | paste -d"," fastqFiles.csv - > fastqList.csv
 # rm fastqFiles.csv
+
+genomeVer=WS285
+GENOME_DIR=${HOME}/genomeData/${genomeVer}
+chromSizesFile=${GENOME_DIR}/${genomeVer}.chrom.sizes
+
+echo "GENOME_DIR=$GENOME_DIR"
+
+mRNAindex=${GENOME_DIR}/${genomeVer}_mRNA_index
+geneindex=${GENOME_DIR}/${genomeVer}_gene_index
+#ncRNAindex=${GENOME_DIR}/${genomeVer}_ncRNA_index
+#pseudoIndex=${GENOME_DIR}/${genomeVer}_pseudogenic_index
+#tnIndex=${GENOME_DIR}/${genomeVer}_transposon_index
 
 # check if paired end or single end
 grep ",fastqFile2," $fastqFileList
@@ -38,6 +54,17 @@ else
     echo "running single end commands"
 fi
 
+
+# output folder
+WORK_DIR=${PWD}
+
+# this selects which row of the fastqList.csv will be run
+i=${SLURM_ARRAY_TASK_ID}
+
+nThreads=${SLURM_CPUS_PER_TASK}
+
+
+# get column data from file (contains all batches)
 fastqFiles1=(`cut -f1 -d "," $fastqFileList`)
 sampleNames=(`cut -f3 -d "," $fastqFileList`)
 if [ "$isPE" == "true" ]; then
@@ -46,54 +73,21 @@ else
     sampleNames=(`cut -f2 -d "," $fastqFileList`)
 fi
 
-
-# output folder
-WORK_DIR=${PWD}
-
-# this selects which row of the fastqList.csv will be run
-i=${SLURM_ARRAY_TASK_ID}
-
-nThreads=${SLURM_CPUS_PER_TASK} 
-
-#####################
-# mapping RNAseq data
-#####################
-
-
-###############################
-########### VARIABLES #########
-###############################
-
-
+# get line data for single batch
 fastqFile1=${fastqFiles1[$i]}
 if [ "$isPE" == "true" ]; then
     fastqFile2=${fastqFiles2[$i]}
 fi
 sampleName=${sampleNames[$i]}
+echo "sampleName=$sampleName"
 
+# not sure what this is?
 #if [[ $fastqFile2 == "#*" ]]; then
 #  echo "skip commented line: $fastqFile"
 #  exit 0
 #fi
 
-genomeVer=WS285
-GENOME_DIR=${HOME}/genomeData/${genomeVer}
-chromSizesFile=${GENOME_DIR}/${genomeVer}.chrom.sizes
-
-echo "sampleName=$sampleName" 
-echo "GENOME_DIR=$GENOME_DIR"
-
-mRNAindex=${GENOME_DIR}/${genomeVer}_mRNA_index
-geneindex=${GENOME_DIR}/${genomeVer}_gene_index
-#ncRNAindex=${GENOME_DIR}/${genomeVer}_ncRNA_index
-#pseudoIndex=${GENOME_DIR}/${genomeVer}_pseudogenic_index
-#tnIndex=${GENOME_DIR}/${genomeVer}_transposon_index
-
-
-#WORK_DIR=$PWD
-QC_DIR=${WORK_DIR}/qc
-
-#FASTQ_DIR=`dirname ${fastqFile}`
+# optional different baseName for SE and PE:
 if [ "$isPE" == "true" ]; then
     baseName=${sampleName}
 else
@@ -101,6 +95,11 @@ else
 fi
 
 echo baseName is $baseName
+
+#####################
+# mapping RNAseq data
+#####################
+
 
 ########################################################
 ### get initial read stats                            ##
