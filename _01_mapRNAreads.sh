@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --partition=all
 #SBATCH --mem-per-cpu=8G
-#SBATCH --array=1#-24%5   #1-20%10
+#SBATCH --array=1-24%5   #1-20%10
 
 #source $HOME/.bashrc
 source ${CONDA_ACTIVATE} RNAseq
@@ -101,34 +101,34 @@ echo baseName is $baseName
 #####################
 
 
+#########################################################
+#### get initial read stats                            ##
+#########################################################
+##
+###run fastqc on sequences
+#mkdir -p ${WORK_DIR}/qc/rawData
+#fastqc ${fastqFile1} -t $nThreads -o ${WORK_DIR}/qc/rawData
+#if [ "$isPE" == "true" ]; then
+#  fastqc ${fastqFile2} -t $nThreads -o ${WORK_DIR}/qc/rawData
+#fi
+#
 ########################################################
-### get initial read stats                            ##
+### trim adaptors with cutadapt                       ##
 ########################################################
 #
-##run fastqc on sequences
-mkdir -p ${WORK_DIR}/qc/rawData
-fastqc ${fastqFile1} -t $nThreads -o ${WORK_DIR}/qc/rawData
-if [ "$isPE" == "true" ]; then
-  fastqc ${fastqFile2} -t $nThreads -o ${WORK_DIR}/qc/rawData
-fi
-
-#######################################################
-## trim adaptors with cutadapt                       ##
-#######################################################
-
-# use cutadapt to trim # cut Illumina adapter: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC
-mkdir -p ${WORK_DIR}/cutadapt
-if [ "$isPE" == "true" ]; then
-     cutadapt -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT  -m 15 -o ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -p ${WORK_DIR}/cutadapt/${baseName}_R2.fastq.gz -j $nThreads ${fastqFile1} ${fastqFile2}
-else  
-     cutadapt -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -m 15 -o ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -j $nThreads ${fastqFile1}
-fi
-#redo fastQC on trimmed reads
-mkdir -p ${WORK_DIR}/qc/cutadapt
-fastqc ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -t $nThreads -o ${WORK_DIR}/qc/cutadapt
-if [ "$isPE" == "true" ]; then
-  fastqc ${WORK_DIR}/cutadapt/${baseName}_R2.fastq.gz -t $nThreads -o ${WORK_DIR}/qc/cutadapt
-fi
+## use cutadapt to trim # cut Illumina adapter: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC
+#mkdir -p ${WORK_DIR}/cutadapt
+#if [ "$isPE" == "true" ]; then
+#     cutadapt -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT  -m 15 -o ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -p ${WORK_DIR}/cutadapt/${baseName}_R2.fastq.gz -j $nThreads ${fastqFile1} ${fastqFile2}
+#else  
+#     cutadapt -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -m 15 -o ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -j $nThreads ${fastqFile1}
+#fi
+##redo fastQC on trimmed reads
+#mkdir -p ${WORK_DIR}/qc/cutadapt
+#fastqc ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -t $nThreads -o ${WORK_DIR}/qc/cutadapt
+#if [ "$isPE" == "true" ]; then
+#  fastqc ${WORK_DIR}/cutadapt/${baseName}_R2.fastq.gz -t $nThreads -o ${WORK_DIR}/qc/cutadapt
+#fi
 
 ######################################################
 ## test fastp                                       ##
@@ -136,10 +136,12 @@ fi
 mkdir -p ${WORK_DIR}/fastp
 mkdir -p ${WORK_DIR}/qc/fastp
 if [ "$isPE" == "true" ]; then
-  fastp -i ${fastqFile1} -I ${fastqFile2} -o ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz -O ${WORK_DIR}/fastp/${baseName}_R2.fastq.gz --threads $nThreads --detect_adapter_for_pe -j ${WORK_DIR}/qc/fastp/${baseName}.json -h ${WORK_DIR}/qc/fastp/${baseName}.html
+  fastp -i ${fastqFile1} -I ${fastqFile2} -o ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz -O ${WORK_DIR}/fastp/${baseName}_R2.fastq.gz --thread $nThreads --detect_adapter_for_pe -j ${WORK_DIR}/qc/fastp/${baseName}_fastp.json -h ${WORK_DIR}/qc/fastp/${baseName}_fastp.html --failed_out  ${WORK_DIR}/fastp/${baseName}_failedReads.txt -R "${baseName} fastp report"
 else
-  fastp -i ${fastqFile1} -o ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz --threads $nThreads -j ${WORK_DIR}/qc/fastp/${baseName}.json -h ${WORK_DIR}/qc/fastp/${baseName}.html
+  fastp -i ${fastqFile1} -o ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz --thread $nThreads -j ${WORK_DIR}/qc/fastp/${baseName}_fastp.json -h ${WORK_DIR}/qc/fastp/${baseName}_fastp.html --failed_out  ${WORK_DIR}/fastp/${baseName}_failedReads.txt -R "${baseName} fastp report"
 fi
+
+multiqc -n multiqc_fastp.html -o ./qc ./qc/fastp
 
 
 #######################################################
@@ -154,9 +156,9 @@ echo "aligning to genome with STAR..."
 mkdir -p ${WORK_DIR}/bamSTAR
 
 if [ "$isPE" == "true" ]; then
-    STAR --genomeDir ${GENOME_DIR}  --readFilesIn ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz ${WORK_DIR}/cutadapt/${baseName}_R2.fastq.gz --readFilesCommand gunzip -c --outFileNamePrefix ${WORK_DIR}/bamSTAR/${baseName}_ --runThreadN $nThreads --outSAMmultNmax 1 --alignIntronMax 500 --quantMode GeneCounts --outSAMtype BAM SortedByCoordinate --outMultimapperOrder Random --outWigType wiggle --outWigStrand $strandedness --outWigNorm $normalisation
+    STAR --genomeDir ${GENOME_DIR}  --readFilesIn ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz ${WORK_DIR}/fastp/${baseName}_R2.fastq.gz --readFilesCommand gunzip -c --outFileNamePrefix ${WORK_DIR}/bamSTAR/${baseName}_ --runThreadN $nThreads --outSAMmultNmax 1 --alignIntronMax 500 --quantMode GeneCounts --outSAMtype BAM SortedByCoordinate --outMultimapperOrder Random --outWigType wiggle --outWigStrand $strandedness --outWigNorm $normalisation
 else
-    STAR --genomeDir ${GENOME_DIR}  --readFilesIn ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz --readFilesCommand gunzip -c --outFileNamePrefix ${WORK_DIR}/bamSTAR/${baseName}_ --runThreadN $nThreads --outSAMmultNmax 1 --alignIntronMax 500 --quantMode GeneCounts --outSAMtype BAM SortedByCoordinate --outMultimapperOrder Random --outWigType wiggle --outWigStrand $strandedness --outWigNorm $normalisation
+    STAR --genomeDir ${GENOME_DIR}  --readFilesIn ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz --readFilesCommand gunzip -c --outFileNamePrefix ${WORK_DIR}/bamSTAR/${baseName}_ --runThreadN $nThreads --outSAMmultNmax 1 --alignIntronMax 500 --quantMode GeneCounts --outSAMtype BAM SortedByCoordinate --outMultimapperOrder Random --outWigType wiggle --outWigStrand $strandedness --outWigNorm $normalisation
 fi
 
 samtools index ${WORK_DIR}/bamSTAR/${baseName}_Aligned.sortedByCoord.out.bam
@@ -178,6 +180,7 @@ if [ -e "${WORK_DIR}/bamSTAR/${baseName}_F_UniqueMultiple_${normalisation}.bw" ]
     fi
 fi
 
+multiqc -n multiqc_STAR.html -o ./qc ./bamSTAR
 
 
 ######################################################
@@ -192,28 +195,29 @@ echo "Count reads with Salmon..."
 #${SALMON_SING}
 if [ "$isPE" == "true" ]; then
   echo "quantify mRNA transcripts: ${WORK_DIR}/salmon/mRNA/${baseName}"
-  salmon quant -i ${mRNAindex} -l A -1 ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -2 ${WORK_DIR}/cutadapt/${baseName}_R2.fastq.gz  --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/mRNA/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
+  salmon quant -i ${mRNAindex} -l A -1 ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz -2 ${WORK_DIR}/fastp/${baseName}_R2.fastq.gz  --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/mRNA/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
   echo "quantify genes: ${WORK_DIR}/salmon/gene/${baseName}"
-  salmon quant -i ${geneindex} -l A -1 ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz -2 ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/gene/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
+  salmon quant -i ${geneindex} -l A -1 ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz -2 ${WORK_DIR}/fastp/${baseName}_R2.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/gene/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
 else
   echo "quantify mRNA transcripts: ${WORK_DIR}/salmon/mRNA/${baseName}"
-  salmon quant -i ${mRNAindex} -l A -r ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/mRNA/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
+  salmon quant -i ${mRNAindex} -l A -r ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/mRNA/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
   echo "quantify genes: ${WORK_DIR}/salmon/gene/${baseName}"
-  salmon quant -i ${geneindex} -l A -r ${WORK_DIR}/cutadapt/${baseName}_R1.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/gene/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
+  salmon quant -i ${geneindex} -l A -r ${WORK_DIR}/fastp/${baseName}_R1.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/gene/${baseName} --seqBias --gcBias --numBootstraps 100 --writeUnmappedNames
 fi
 
 # so far not needed
 #echo "quantify ncRNA transcripts: ${WORK_DIR}/salmon/ncRNA/${baseName}"
 ##${SALMON_SING}
-#salmon quant -i ${ncRNAindex} -l A -r ${WORK_DIR}/cutadapt/${baseName}.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/ncRNA/${baseName} --seqBias --gcBias --numBootstraps 100
+#salmon quant -i ${ncRNAindex} -l A -r ${WORK_DIR}/fastp/${baseName}.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/ncRNA/${baseName} --seqBias --gcBias --numBootstraps 100
 #
 #echo "quantify pseudoRNA transcripts: ${WORK_DIR}/salmon/pseudoRNA/${baseName}"
 ##${SALMON_SING}
-#salmon quant -i ${pseudoIndex} -l A -r ${WORK_DIR}/cutadapt/${baseName}.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/pseudoRNA/${baseName} --seqBias --gcBias --numBootstraps 100
+#salmon quant -i ${pseudoIndex} -l A -r ${WORK_DIR}/fastp/${baseName}.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/pseudoRNA/${baseName} --seqBias --gcBias --numBootstraps 100
 #
 #echo "quantify TnRNA transcripts: ${WORK_DIR}/salmon/tnRNA/${baseName}"
 ##${SALMON_SING}
-#salmon quant -i ${tnIndex} -l A -r ${WORK_DIR}/cutadapt/${baseName}.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/tnRNA/${baseName} --seqBias --gcBias --numBootstraps 100
+#salmon quant -i ${tnIndex} -l A -r ${WORK_DIR}/fastp/${baseName}.fastq.gz --validateMappings -p ${nThreads} -o ${WORK_DIR}/salmon/tnRNA/${baseName} --seqBias --gcBias --numBootstraps 100
 
 
-
+multiqc -n multiqc_salmon-mRNA.html -o ./qc ./salmon/mRNA
+multiqc -n multiqc_salmon-gene.html -o ./qc ./salmon/gene

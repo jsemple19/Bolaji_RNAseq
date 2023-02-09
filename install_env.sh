@@ -23,7 +23,7 @@ if [ -z ${CONDA_ACTIVATE} ]; then
 fi
 
 # OR in a specific location
-conda install --update-deps cutadapt fastqc wiggletools fastp -c bioconda -c conda-forge
+conda install --update-deps cutadapt fastqc wiggletools fastp multiqc -c bioconda -c conda-forge
 conda install --update-deps -c bioconda htslib samtools bcftools ucsc-wigtobigwig gffread 
 #conda install --update-deps -c conda-forge ncurses
 
