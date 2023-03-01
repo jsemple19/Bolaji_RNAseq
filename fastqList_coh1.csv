@@ -1,0 +1,13 @@
+fastqFile1,fastqFile2,sampleName,strain,repeatNum,laneNum,date
+/mnt/external.data/mdas/20210421_RNAseq_TEV/366C_1/366C1_L1_R1_001_yYNqwishzWTA.fastq.gz,/mnt/external.data/mdas/20210421_RNAseq_TEV/366C_1/366C1_L1_R2_001_ERQ6rABXFI7g.fastq.gz,366_C1_L1,366,C1,L1,20210421
+/mnt/external.data/mdas/20210421_RNAseq_TEV/366C_1/366C1_L2_R1_001_fzQXUDsOOODQ.fastq.gz,/mnt/external.data/mdas/20210421_RNAseq_TEV/366C_1/366C1_L2_R2_001_YuRKEPO8cjem.fastq.gz,366_C1_L2,366,C1,L2,20210421
+/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C2/366C2_L1_R1_001_pl8yzAZgjsvK.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C2/366C2_L1_R2_001_zhd5zGlpY8GX.fastq.gz,366_C2_L1,366,C2,L1,20210628
+/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C2/366C2_L2_R1_001_3k6qtwyWLYjh.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C2/366C2_L2_R2_001_zlZk43H3Ghbd.fastq.gz,366_C2_L2,366,C2,L2,20210628
+/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C3/366C3_L1_R1_001_y5hWcd7HkCrr.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C3/366C3_L1_R2_001_Z1XX40dvM868.fastq.gz,366_C3_L1,366,C3,L1,20210628
+/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C3/366C3_L2_R1_001_KQg5NmSZshKq.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/366_C3/366C3_L2_R2_001_DdcIruIUUJss.fastq.gz,366_C3_L2,366,C3,L2,20210628
+/mnt/external.data/mdas/20210421_RNAseq_TEV/828C_1/828C1_L1_R1_001_92jLZEdNYE27.fastq.gz,/mnt/external.data/mdas/20210421_RNAseq_TEV/828C_1/828C1_L1_R2_001_b6malwUIKmOR.fastq.gz,828_C1_L1,828,C1,L1,20210421
+/mnt/external.data/mdas/20210421_RNAseq_TEV/828C_1/828C1_L2_R1_001_eVO8OaPO6rD5.fastq.gz,/mnt/external.data/mdas/20210421_RNAseq_TEV/828C_1/828C1_L2_R2_001_548VC9Dclsso.fastq.gz,828_C1_L2,828,C1,L2,20210421
+/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C2/828C2_L1_R1_001_2qn9FVAXuJdS.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C2/828C2_L1_R2_001_2HC6cN9XiPwB.fastq.gz,828_C2_L1,828,C2,L1,20210628
+/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C2/828C2_L2_R1_001_mEHkebaaTPLm.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C2/828C2_L2_R2_001_W9LyK6d9KkdU.fastq.gz,828_C2_L2,828,C2,L2,20210628
+/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C3/828C3_L1_R1_001_2sObxWvXwbj6.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C3/828C3_L1_R2_001_tiIxD5saDFNJ.fastq.gz,828_C3_L1,828,C3,L1,20210628
+/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C3/828C3_L2_R1_001_ZtAljFbnP2gp.fastq.gz,/mnt/external.data/mdas/20210628_RNAseq_TEV/828_C3/828C3_L2_R2_001_MZdYIuLGuk0Z.fastq.gz,828_C3_L2,828,C3,L2,20210628
