@@ -109,8 +109,8 @@ else
 fi
 
 
-cat  ${genomeDir}/c_elegans.PRJNA13758.${genomeVer}.genes.fa.gz ${genomeDir}/c_elegans.PRJNA13758.${genomeVer}.genomic_masked.fa.gz > ${genomeDir}/gene_gentrome.fa.gz
+cat  ${genomeDir}/c_elegans.PRJNA13758.${genomeVer}.mRNA_transcripts.fa.gz ${genomeDir}/c_elegans.PRJNA13758.${genomeVer}.genes.fa.gz ${genomeDir}/c_elegans.PRJNA13758.${genomeVer}.genomic_masked.fa.gz > ${genomeDir}/EISA_gentrome.fa.gz
 
-salmon index -t ${genomeDir}/gene_gentrome.fa.gz -d ${genomeDir}/decoys.txt -p $nThreads -i ${genomeDir}/${genomeVer}_gene_index
+salmon index -t ${genomeDir}/EISA_gentrome.fa.gz -d ${genomeDir}/decoys.txt -p $nThreads -i ${genomeDir}/${genomeVer}_EISA_index
 
-rm ${genomeDir}/gene_gentrome.fa.gz
+rm ${genomeDir}/EISA_gentrome.fa.gz
