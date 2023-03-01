@@ -84,3 +84,38 @@ getSignificantGenes<-function(resultsTable, padj=0.05, lfc=0, namePadjCol="padj"
   return(filtTable)
 }
 
+
+
+#' Get list of results tables
+#'
+#' Given a table with columns filePath and sampleName, where filePath contains
+#' the full path to a DESeq2 results path, read in all the results files in to a
+#' list. if padjVal is not null, the files will also be filtered by significance.
+#' Additional filtering can be performed on the Log2FoldChange, direction of
+#' Log2FoldChange and X vs autosomes. A sampleName column is added to the results
+#' tables to identify which dataset they come from.
+#' @param fileList data.frame with columns filePath and sampleName
+#' @param padjVal padjusted value used for filtering. if NULL (default) then no filtering.
+#' @param lfcVal Log2 fold change value used for filtering (default is 0)
+#' @param direction direction of log2 fold change. One of "both" (default), "gt" (greater than),
+#' or "lt" (less than).
+#' @param chr Chromosomes by which to filter results. Default is "all", otherwise "chrX" or "autosomes".
+#' @return List of data.frames with DESeq2 results
+#' @export
+getListOfResults<-function(fileList,padjVal=NULL,lfcVal=0,direction="both",chr="all"){
+  sigTables<-list()
+  for (i in 1:nrow(fileList)){
+    salmon<-readRDS(fileList$filePath[i])
+    salmon$sampleName=fileList$sampleName[i]
+    if(!is.null(padjVal)){
+      sigTables[[fileList$sampleName[i]]]<-as.data.frame(getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                                                             namePadjCol="padj",
+                                                                             nameLfcCol="log2FoldChange",
+                                                                             direction="both",
+                                                                             chr="all", nameChrCol="chr"))
+    } else {
+      sigTables[[fileList$sampleName[i]]]<-as.data.frame(salmon)
+    }
+  }
+  return(sigTables)
+}
