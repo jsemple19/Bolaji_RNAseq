@@ -119,3 +119,44 @@ getListOfResults<-function(fileList,padjVal=NULL,lfcVal=0,direction="both",chr="
   }
   return(sigTables)
 }
+
+
+#' Get list of results tables subset by overlaps to a GRanges object
+#'
+#' Given a table with columns filePath and sampleName, where filePath contains
+#' the full path to a DESeq2 results path, read in all the results files, subset by
+#' their overlap to the GRanges object. if padjVal is not null, the files will also be filtered by significance.
+#' Additional filtering can be performed on the Log2FoldChange, direction of
+#' Log2FoldChange and X vs autosomes. A sampleName column is added to the results
+#' tables to identify which dataset they come from.
+#' @param fileList data.frame with columns filePath and sampleName
+#' @param gr GenomicRanges object used to select genes which overlap it
+#' @param padjVal Adjusted p value used for filtering. if NULL (default) then no filtering.
+#' @param lfcVal Log2 fold change value used for filtering (default is 0)
+#' @param direction direction of log2 fold change. One of "both" (default), "gt" (greater than),
+#' or "lt" (less than).
+#' @param chr Chromosomes by which to filter results. Default is "all", otherwise "chrX" or "autosomes".
+#' @return List of GRanges with DESeq2 results
+#' @export
+resultsByGRoverlap<-function(fileList,gr,padjVal=NULL,lfcVal=0,direction="both",chr="all"){
+  sigTables<-list()
+  i=1
+  for (i in 1:nrow(fileList)){
+    salmon<-readRDS(fileList$filePath[i])
+    salmon<-salmon[!is.na(salmon$chr),]
+    salmon$sampleName=fileList$sampleName[i]
+    if(!is.null(padjVal)){
+      salmon<-getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                         namePadjCol="padj",
+                                         nameLfcCol="log2FoldChange",
+                                         direction="both",
+                                         chr="all", nameChrCol="chr")
+    }
+    resGR<-GRanges(seqnames=salmon$chr,ranges=IRanges(start=salmon$start,end=salmon$end))
+    mcols(resGR)<-salmon
+    sigTables[[fileList$sampleName[i]]]<-subsetByOverlaps(resGR,gr,type="any")
+  }
+  return(sigTables)
+}
+
+
