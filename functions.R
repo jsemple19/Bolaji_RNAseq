@@ -136,9 +136,12 @@ getListOfResults<-function(fileList,padjVal=NULL,lfcVal=0,direction="both",chr="
 #' @param direction direction of log2 fold change. One of "both" (default), "gt" (greater than),
 #' or "lt" (less than).
 #' @param chr Chromosomes by which to filter results. Default is "all", otherwise "chrX" or "autosomes".
+#' @param resizeTo Defualt is NULL, no resizing of gr. Alternatively can use "start" ,"center", or "end"
+#' to make 1bp gr fixed at those positoins.
 #' @return List of GRanges with DESeq2 results
 #' @export
-resultsByGRoverlap<-function(fileList,gr,padjVal=NULL,lfcVal=0,direction="both",chr="all"){
+resultsByGRoverlap<-function(fileList,gr,padjVal=NULL,lfcVal=0,direction="both",chr="all",
+                             resizeTo=NULL){
   sigTables<-list()
   i=1
   for (i in 1:nrow(fileList)){
@@ -152,9 +155,14 @@ resultsByGRoverlap<-function(fileList,gr,padjVal=NULL,lfcVal=0,direction="both",
                                          direction="both",
                                          chr="all", nameChrCol="chr")
     }
-    resGR<-GRanges(seqnames=salmon$chr,ranges=IRanges(start=salmon$start,end=salmon$end))
-    mcols(resGR)<-salmon
-    sigTables[[fileList$sampleName[i]]]<-subsetByOverlaps(resGR,gr,type="any")
+    resGR<-GRanges(seqnames=salmon$chr,ranges=IRanges(start=salmon$start,end=salmon$end),
+                   strand=salmon$strand)
+    idx<-colnames(salmon) %in% c("start","end","strand")
+    mcols(resGR)<-salmon[,!idx]
+    if(!is.null(resizeTo)){
+      resGR<-resize(resGR,width=1,fix=resizeTo)
+    }
+    sigTables[[fileList$sampleName[i]]]<-subsetByOverlaps(resGR,gr,type="any",ignore.strand=T)
   }
   return(sigTables)
 }
