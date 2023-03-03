@@ -1,0 +1,105 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(cowplot)
+library(magick)
+outPath="."
+padjVal=0.05
+lfcVal=0
+RNAseqDir="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216"
+
+fileList<-data.frame(
+  sampleName=c("AMA","FLAVO","COH1cs","TOP1","TOP2","TOP1_0h","TOP1_0.5h","TOP1_1h",
+               "TOP1_2h","TOP2_0h","TOP2_0.5h","TOP2_1h", "TOP2_2h"),
+  filePath=paste0(RNAseqDir,
+                  c("/rds/chem_noOsc/chem_noOsc_AMAvsN2_DESeq2_fullResults.rds",
+                    "/rds/chem_noOsc/chem_noOsc_FLAVOvsN2_DESeq2_fullResults.rds",
+                    "/rds/coh1_noOsc/coh1_noOsc_COH1vsTEVonly_DESeq2_fullResults.rds",
+                    "/rds/top1top2_noOsc/top1top2_noOsc_Top1AUXvsTIRAUX_DESeq2_fullResults.rds",
+                    "/rds/top1top2_noOsc/top1top2_noOsc_Top2AUXvsTIRAUX_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux0_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux0.5_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux1_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux2_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0.5_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux1_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux2_DESeq2_fullResults.rds")))
+#fileNamePrefix="preFiltOsc2x_"
+```
+
+# GO enrichment - `r paste0("p",padjVal," lfc",lfcVal)`
+
+```{r GOterm, echo=F}
+for(grp in fileList$sampleName){
+  grpPathUp=paste0(outPath,"/tissue/tea/",grp,"_up_go.svg")
+  if(file.exists(grpPathUp)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathUp) + 
+      cowplot::draw_label(paste0(grp," up"), colour = "#80404080",
+                          x=1,y=0.1,vjust=0,hjust=1)
+    plot(fig_svg)
+  }
+  
+  grpPathDown=paste0(outPath,"/tissue/tea/",grp,"_down_go.svg")
+  if(file.exists(grpPathDown)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathDown) + 
+      cowplot::draw_label(paste0(grp," down"), colour = "#80404080",
+                          x=1,y=0.1,vjust=0,hjust=1)
+    plot(fig_svg)
+  }
+}
+```
+
+
+# Tissue enrichment - `r paste0("p",padjVal," lfc",lfcVal)`
+
+```{r tissue, echo=F}
+for(grp in fileList$sampleName){
+  grpPathUp=paste0(outPath,"/tissue/tea/",grp,"_up_tissue.svg")
+  if(file.exists(grpPathUp)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathUp) +
+      cowplot::draw_label(paste0(grp," up"), colour = "#80404080",
+                          x=1,y=0.1,vjust=0,hjust=1)
+    plot(fig_svg)
+  }
+  
+  grpPathDown=paste0(outPath,"/tissue/tea/",grp,
+                     "_down_tissue.svg")
+  if(file.exists(grpPathDown)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathDown) +
+      cowplot::draw_label(paste0(grp," down"), colour = "#80404080",
+                          x=1,y=0.1,vjust=0,hjust=1)
+    plot(fig_svg)
+  }
+}
+```
+
+
+# Phenotype enrichment - `r paste0("p",padjVal," lfc",lfcVal)`
+
+```{r phenotype, echo=F}
+for(grp in fileList$sampleName){
+  grpPathUp=paste0(outPath,"/tissue/tea/", grp,
+                   "_up_phe.svg")
+  if(file.exists(grpPathUp)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathUp) + 
+      cowplot::draw_label(paste0(grp," up"), colour = "#80404080",
+                          x=1,y=0.1,vjust=0,hjust=1)
+    plot(fig_svg)
+  }
+  
+  grpPathDown=paste0(outPath,"/tissue/tea/",grp,
+                     "_down_phe.svg")
+  if(file.exists(grpPathDown)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathDown) + 
+      cowplot::draw_label(paste0(grp," down"), colour = "#80404080",
+                          x=1,y=0.1,vjust=0,hjust=1)
+    plot(fig_svg)
+  }
+}
+```

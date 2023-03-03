@@ -1,0 +1,99 @@
+---
+output:
+  pdf_document: 
+    fig_height: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(cowplot)
+library(magick)
+outPath="."
+padjVal=0.05
+lfcVal=0
+RNAseqDir="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216"
+
+fileList<-data.frame(
+  sampleName=c("AMA","FLAVO","COH1cs","TOP1","TOP2","TOP1_0h","TOP1_0.5h","TOP1_1h",
+               "TOP1_2h","TOP2_0h","TOP2_0.5h","TOP2_1h", "TOP2_2h"),
+  filePath=paste0(RNAseqDir,
+                  c("/rds/chem_noOsc/chem_noOsc_AMAvsN2_DESeq2_fullResults.rds",
+                    "/rds/chem_noOsc/chem_noOsc_FLAVOvsN2_DESeq2_fullResults.rds",
+                    "/rds/coh1_noOsc/coh1_noOsc_COH1vsTEVonly_DESeq2_fullResults.rds",
+                    "/rds/top1top2_noOsc/top1top2_noOsc_Top1AUXvsTIRAUX_DESeq2_fullResults.rds",
+                    "/rds/top1top2_noOsc/top1top2_noOsc_Top2AUXvsTIRAUX_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux0_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux0.5_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux1_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux2_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0.5_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux1_DESeq2_fullResults.rds",
+                    "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux2_DESeq2_fullResults.rds")))
+
+```
+
+# Wormcat category 1 - `r paste0("p",padjVal," lfc",lfcVal)`
+
+```{r wormcat cat1, echo=F}
+for(grp in fileList$sampleName){
+  grpPathUp=paste0(outPath,"/wormcat/",grp,"_up/rgs_fisher_cat1_apv.svg")
+  if(file.exists(grpPathUp)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathUp)
+    plot(fig_svg)
+    print("\n")
+  }
+  
+  grpPathDown=paste0(outPath,"/wormcat/",grp,"_down/rgs_fisher_cat1_apv.svg")
+  if(file.exists(grpPathDown)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathDown)
+    plot(fig_svg)
+    print("\n")
+  }
+}
+```
+
+
+# Wormcat category 2 - `r paste0("p",padjVal," lfc",lfcVal)`
+
+```{r wormcat cat2, echo=F, eval=T}
+for(grp in fileList$sampleName){
+  grpPathUp=paste0(outPath,"/wormcat/",grp,
+                   "_up/rgs_fisher_cat2_apv.svg")
+  if(file.exists(grpPathUp)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathUp)
+    plot(fig_svg)
+    print("\n")
+  }
+  
+  grpPathDown=paste0(outPath,"/wormcat/",grp,
+                     "_down/rgs_fisher_cat2_apv.svg")
+  if(file.exists(grpPathDown)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathDown)
+    plot(fig_svg)
+    print("\n")
+  }
+}
+```
+
+# Wormcat category 3 - `r paste0("p",padjVal," lfc",lfcVal)`
+
+```{r wormcat cat3, echo=F, eval=T}
+for(grp in fileList$sampleName){
+  grpPathUp=paste0(outPath,"/wormcat/",grp,
+                   "_up/rgs_fisher_cat3_apv.svg")
+  if(file.exists(grpPathUp)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathUp)
+    plot(fig_svg)
+    print("\n")
+  }
+  
+  grpPathDown=paste0(outPath,"/wormcat/",grp,
+                     "_down/rgs_fisher_cat3_apv.svg")
+  if(file.exists(grpPathDown)){
+    fig_svg<-cowplot::ggdraw() + cowplot::draw_image(grpPathDown)
+    plot(fig_svg)
+    print("\n")
+  }
+}
+```

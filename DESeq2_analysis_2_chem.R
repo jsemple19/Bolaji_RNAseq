@@ -52,7 +52,7 @@ print(paste("genomeDir is: ",genomeDir))
 ####
 ## other preset variables
 ####
-namePrefix <-"chem" #use _noOsc in prefix to automatically filter oscillating genes
+namePrefix <-"chem_noOsc" #use _noOsc in prefix to automatically filter oscillating genes
 fileNamePrefix <- paste0(namePrefix,"/",namePrefix,"_")
 plotPDFs <- F
 
