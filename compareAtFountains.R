@@ -13,7 +13,9 @@ source(paste0(scriptPath,"/functions.R"))
 
 theme_set(
   theme_bw()+
-    theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank())
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(),
+          axis.title.y=ggtext::element_markdown())
 )
 
 scriptName="compareAtFountains"
@@ -106,7 +108,7 @@ stl<-resultsByGRoverlap(fileList,fountains)
 fountRes<-do.call(rbind,lapply(stl,as.data.frame))
 fountRes$regionType<-"fountain"
 
-stl<-resultsByGRoverlap(fileList,nonFount)
+stl<-resultsByGRoverlap(fileList[13,],nonFount)
 nonFountRes<-do.call(rbind,lapply(stl,as.data.frame))
 nonFountRes$regionType<-"between"
 
@@ -150,7 +152,7 @@ p
 ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"LFCsigGenesInFountains",width(fountains[1])/1000,"kb_boxplots.pdf"),plot=p, device="pdf",width=29,height=19,units="cm")
 
 
-## sig genes 2kb
+## sig genes 6kb
 stl<-resultsByGRoverlap(fileList,fountains_6kb,padjVal=0.05)
 stl<-stl[-which(lapply(stl,length)<10)]
 fountRes<-do.call(rbind,lapply(stl,as.data.frame))

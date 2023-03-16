@@ -53,7 +53,7 @@ print(paste("genomeDir is: ",genomeDir))
 ## other preset variables
 ####
 
-namePrefix<-"top1top2moraoT" #use _noOsc in prefix to automatically filter oscillating genes
+namePrefix<-"top1top2moraoT_noOsc" #use _noOsc in prefix to automatically filter oscillating genes
 fileNamePrefix <- paste0(namePrefix,"/",namePrefix,"_")
 plotPDFs <- F
 
@@ -190,6 +190,10 @@ contrastsOI[["Top1vsAux0.5"]]<-top1aux0.5-auxin0.5
 contrastsOI[["Top1vsAux1"]]<-top1aux1-auxin1
 contrastsOI[["Top1vsAux2"]]<-top1aux2-auxin2
 
+contrastsOI[["Top1Aux0.5vsTop1Aux0"]]<-top1aux0.5-top1aux0
+contrastsOI[["Top1Aux1vsTop1Aux0"]]<-top1aux1-top1aux0
+contrastsOI[["Top1Aux2vsTop1Aux0"]]<-top1aux2-top1aux0
+
 contrastsOI[["Top1xAux0.5"]]<-top1aux0.5-top1aux0 - (auxin0.5 - auxin0)
 contrastsOI[["Top1xAux1"]]<-top1aux1-top1aux0 - (auxin1 - auxin0)
 contrastsOI[["Top1xAux2"]]<-top1aux2-top1aux0 - (auxin2 - auxin0)
@@ -198,6 +202,11 @@ contrastsOI[["Top2vsAux0"]]<-top2aux0-auxin0
 contrastsOI[["Top2vsAux0.5"]]<-top2aux0.5-auxin0.5
 contrastsOI[["Top2vsAux1"]]<-top2aux1-auxin1
 contrastsOI[["Top2vsAux2"]]<-top2aux2-auxin2
+
+contrastsOI[["Top2Aux0.5vsTop2Aux0"]]<-top2aux0.5-top2aux0
+contrastsOI[["Top2Aux1vsTop2Aux0"]]<-top2aux1-top2aux0
+contrastsOI[["Top2Aux2vsTop2Aux0"]]<-top2aux2-top2aux0
+
 
 contrastsOI[["Top2xAux0.5"]]<-top2aux0.5-top2aux0 - (auxin0.5 - auxin0)
 contrastsOI[["Top2xAux1"]]<-top2aux1-top2aux0 - (auxin1 - auxin0)

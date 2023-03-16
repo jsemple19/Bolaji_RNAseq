@@ -1,6 +1,7 @@
 library(GenomicRanges)
 library(ggplot2)
 library(ggpubr)
+library(dplyr)
 
 outPath="."
 scriptPath="."
@@ -35,6 +36,9 @@ fileList<-data.frame(sampleName=c("AMA","FLAVO","COH1cs","TOP1","TOP2","TOP1_0h"
                              "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0.5_DESeq2_fullResults.rds",
                              "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux1_DESeq2_fullResults.rds",
                              "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux2_DESeq2_fullResults.rds")))
+
+
+
 
 ###################-
 ## plot Morao data as trajectories-----

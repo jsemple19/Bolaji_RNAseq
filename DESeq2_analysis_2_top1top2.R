@@ -183,6 +183,8 @@ Top2auxin<-colMeans(modMat[sampleTable$sampleGroup == "TOP2_p",])
 contrastsOI[["TIR1AUXvsTIR1NoAUX"]]<-TIRauxin-TIRcontrol
 contrastsOI[["Top1xAUX"]]<-Top1auxin-Top1control - (TIRauxin-TIRcontrol) #to get interaction effect
 contrastsOI[["Top2xAUX"]]<-Top2auxin-Top2control- (TIRauxin-TIRcontrol) #to get interaction effect.
+contrastsOI[["Top1AUXvsTop1"]]<-Top1auxin-Top1control
+contrastsOI[["Top2AUXvsTop2"]]<-Top2auxin-Top2control
 contrastsOI[["Top1AUXvsTIRAUX"]]<-Top1auxin-TIRauxin
 contrastsOI[["Top2AUXvsTIRAUX"]]<-Top2auxin-TIRauxin
 contrastNames<-names(contrastsOI)
