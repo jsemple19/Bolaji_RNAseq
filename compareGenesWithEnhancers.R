@@ -73,7 +73,7 @@ table(seqnames(daughertyEnh))
 head(daughertyEnh)
 length(daughertyEnh)
 
-daughertyEnh<-daughertyEnh %>% as_tibble() %>%
+daughertyEnhByGene<-daughertyEnh %>% as_tibble() %>%
   dplyr::select(L3_chromHMMState,nearestGene,distanceToNearest) %>%
   dplyr::group_by(nearestGene) %>%
   dplyr::summarise(enhancerTypes=paste0(unique(L3_chromHMMState),collapse=","),
@@ -81,19 +81,19 @@ daughertyEnh<-daughertyEnh %>% as_tibble() %>%
             enhancerUniqCount=length(unique(L3_chromHMMState)),
             closestEnhancer=min(distanceToNearest),
             furthestEnhancer=max(distanceToNearest))
-dim(daughertyEnh)
+dim(daughertyEnhByGene)
 
 
-daughertyEnh$type<-daughertyEnh$enhancerTypes
-#daughertyEnh[daughertyEnh$enhancerUniqCount!="1", "type"]<-"L3_mixedEnhancerTypes"
-daughertyEnh[daughertyEnh$enhancerUniqCount!="1" &
-                grepl("L3_activeEnhancer", daughertyEnh$enhancerTypes), "type"]<-"L3_mixedActive&Repressed"
-daughertyEnh[daughertyEnh$enhancerUniqCount!="1" &
-                !grepl("L3_activeEnhancer", daughertyEnh$enhancerTypes),"type"]<-"L3_mixedRepressed"
-table(daughertyEnh$type)
-colnames(daughertyEnh)[colnames(daughertyEnh)=="nearestGene"]<-"wormbaseID"
+daughertyEnhByGene$type<-daughertyEnhByGene$enhancerTypes
+#daughertyEnhByGene[daughertyEnhByGene$enhancerUniqCount!="1", "type"]<-"L3_mixedEnhancerTypes"
+daughertyEnhByGene[daughertyEnhByGene$enhancerUniqCount!="1" &
+                grepl("L3_activeEnhancer", daughertyEnhByGene$enhancerTypes), "type"]<-"L3_mixedActive&Repressed"
+daughertyEnhByGene[daughertyEnhByGene$enhancerUniqCount!="1" &
+                !grepl("L3_activeEnhancer", daughertyEnhByGene$enhancerTypes),"type"]<-"L3_mixedRepressed"
+table(daughertyEnhByGene$type)
+colnames(daughertyEnhByGene)[colnames(daughertyEnhByGene)=="nearestGene"]<-"wormbaseID"
 options(pillar.width = Inf)
-head(daughertyEnh)
+head(daughertyEnhByGene)
 
 
 grp="COH1cs"
@@ -106,8 +106,11 @@ for(grp in subset){
   salmon<-salmon[!is.na(salmon$chr),]
   salmongr<-makeGRangesFromDataFrame(salmon,keep.extra.columns = T)
   salmongr<-sort(salmongr)
-  tbl<-left_join(as_tibble(salmongr),daughertyEnh,by="wormbaseID")
+  tbl<-left_join(as_tibble(salmongr),daughertyEnhByGene,by="wormbaseID")
   tbl$type[is.na(tbl$type)]<-"NoEnhancer"
+  tmpgr<-resize(width=1,fix="start",makeGRangesFromDataFrame(tbl[tbl$type=="NoEnhancer",]))
+  dtn<-distanceToNearest(tmpgr,daughertyEnh)
+  tbl[tbl$type=="NoEnhancer","closestEnhancer"]<-mcols(dtn)$distance
   tbl$XvA<-ifelse(tbl$seqnames=="chrX","chrX","autosomes")
   #tbl <- dplyr::filter(tbl,tbl$padj < padjVal)
   #tbl$upVdown<-ifelse(tbl$log2FoldChange > lfcVal,"up","down")
@@ -124,6 +127,9 @@ fulltbl$type<-factor(fulltbl$type,levels=c("NoEnhancer",
                                                         "H3K27me3Repressed",
                                                         "mixedRepressed"))))
 table(fulltbl$type)
+fulltbl %>% dplyr::group_by(type) %>% summarise(minDist=min(closestEnhacer),
+                                                avrDist=mean(closestEnhacer),
+                                                maxDist=max(closestEnhancer))
 #all genes
 p1<-ggplot(fulltbl,aes(x=type,y=log2FoldChange,fill=type)) +
   #geom_violin(width=1) +
