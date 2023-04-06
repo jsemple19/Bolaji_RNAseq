@@ -26,6 +26,38 @@ makeTxDbsqlite<-function(genomeDir,genomeVer){
                          ".annotations.sqlite"))
 }
 
+#' Create TxDb from Wormbase annotation gtf but save with ce11 genome
+#'
+#' Convert wormbase annotation gtf to txdb object for particular
+#' genome version. File must be named as in wormbase:
+#' paste0("c_elegans.PRJNA13758.",genomeVer,".annotations.gtf")
+#' @param genomeDir Directory where gtf is stored.
+#' @param genomeVer Version of wormbase to use, e.g. "WS285"
+#' @return None. sqlite txdb will be written to genomeDir.
+#' @export
+makeTxDbsqlite_ce11<-function(genomeDir,genomeVer){
+  #dir.create(paste0(genomeDir,"/annotations"),recursive=T)
+  gtf<-import(paste0(genomeDir,"/c_elegans.PRJNA13758.",
+                     genomeVer,".annotations.gtf"))
+  si<-GenomeInfoDb::seqinfo(BSgenome.Celegans.UCSC.ce11::Celegans)
+  seqlevels(gtf)<-seqlevels(si)
+  seqinfo(gtf)<-seqinfo(Celegans)
+  gtf$transcript_id<-gsub("Transcript:","",gtf$transcript_id)
+  gtf$gene_id<-gsub("Gene:","",gtf$gene_id)
+  export(gtf,paste0(genomeDir,"/c_elegans.PRJNA13758.",
+                genomeVer,"_ce11.annotations.gtf"))
+  wstxdb<-GenomicFeatures::makeTxDbFromGFF(file=paste0(genomeDir,
+                                                       "/c_elegans.PRJNA13758.",
+                                                       genomeVer,"_ce11.annotations.gtf"),
+                                           format="gtf",organism="Caenorhabditis elegans",
+                                           chrominfo=si)
+
+  saveDb(wstxdb,paste0(genomeDir, "/c_elegans.PRJNA13758.", genomeVer,
+                       "_ce11.annotations.sqlite"))
+}
+
+
+
 #' Make tx2gene object
 #'
 #' Use txdb from wormbase annotation to make a tx2gene table required to
