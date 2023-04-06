@@ -225,15 +225,20 @@ upGenes<-data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b>0) %>% dplyr:
 
 uptx<-data.frame(so) %>% dplyr::filter(wormbaseID %in% upGenes$wormbaseID) %>%
   dplyr::group_by(wormbaseID) %>%
-  dplyr::mutate(count=n(),notNA=which(!is.na(qval))[1]) %>%
+  dplyr::mutate(count=n(),notNA=which(!is.na(qval))[1],sig1=any(qval<0.05)) %>%
   dplyr::filter(count>1) %>% mutate(isoRatio=b/b[notNA]) %>%
-  dplyr::filter(!is.na(isoRatio),abs(isoRatio)>1)
+  dplyr::filter(!is.na(isoRatio),abs(isoRatio)>1,sig1==T)
 
 print(uptx,width=Inf)
+
 
 diffuptx<-unique(uptx$wormbaseID)
 so$diffuptx<-F
 so$diffuptx[so$wormbaseID %in% diffuptx]<-T
+length(so[so$diffuptx==T])
+length(unique(so[so$diffuptx==T]$wormbaseID))
+saveRDS(so[so$diffuptx==T],file=paste0(outPath,"/sleuth/coh1cs_DTE_isoformDiffratio.RDS"))
+
 
 
 fountains<-readRDS("/Users/semple/Documents/MeisterLab/otherPeopleProjects/fountains/detected_fountains_equalQ.RDS")
@@ -258,7 +263,7 @@ library(GENOVA)
 library(patchwork)
 # get hic data
 tev<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/366_cis100bins_1000.cool", sample_name= "TEVonly", centromeres=F, balancing = F, verbose = T, colour="black")
-coh1<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/828_cis100bins_1000.cool", sample_name= "coh1", centromeres=F, balancing = F, verbose = T, colour="black")
+coh1<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/828_cis100bins_1000.cool", sample_name= "coh1", centromeres=F, balancing = T, verbose = T, colour="black")
 # get fountains
 fountains<-readRDS("/Users/semple/Documents/MeisterLab/otherPeopleProjects/fountains/detected_fountains_equalQ.RDS")
 fountains$fountainName<-paste0("fount",1:length(fountains))
@@ -289,27 +294,31 @@ theme_bed = function(){
         axis.ticks=element_blank())
 }
 
+#' Try bed track plot but if no overlaps in this region - do empty plot keeping title
+tryPlot<-function(gr1,gr2,title,fill){
+  p1<-autoplot(subsetByOverlaps(gr1,gr2,ignore.strand=T), geom="rect",fill=fill,legend=F) +
+    xlim(gr2) + ggtitle(title)
+  p2<-autoplot(Celegans, which = gr2) + xlim(gr2)+ ggtitle(title)
+  if(is(try(print(p1)),"try-error")) p2 else p1
+}
 
-plotList=list()
+
+
 for (wbid in unique(so$wormbaseID[so$diffuptx==T])) {
 #wbid="WBGene00020131"
   gr<-GenomicRanges::reduce(so[so$wormbaseID==wbid],drop.empty.ranges=T)
   #f<-nearest(gr,fountains,ignore.strand=T)
   #gr<-reduce(fountains[f],gr)
   gr<-trim(resize(gr,width=100000,fix="center"))
+  strand(gr)<-"*"
   p.bg <- autoplot(Celegans, which = gr) + xlim(gr)
-  p.txdb<-autoplot(txdb,which=gr,label.size=1.5,fill="grey80") + xlim(gr)
-  p.fount <- autoplot(subsetByOverlaps(fountains,gr), geom="rect",aes(fill=j.score),legend=F) +
-    xlim(gr) + ggtitle("Detected fountains") + theme_bed()
-  p.activeD<-autoplot(subsetByOverlaps(activedaugherty,gr), geom="rect",fill="darkgreen") +
-    xlim(gr) + ggtitle("Active enhancers (Daugherty et al.)") + theme_bed()
-  p.activeJ<-autoplot(subsetByOverlaps(activejaenes,gr), geom="rect",fill="darkgreen") +
-    xlim(gr) + ggtitle("Active enhancers (Jaenes et al.)") #+ theme_bed()
-  p.repD<-autoplot(subsetByOverlaps(repdaugherty,gr), aes(fill=L3_chromHMMState),geom="rect",fill="darkgray") +
-    xlim(gr) + ggtitle("Repressed enhancers (Daugherty et al.)") + theme_bed()
-  p.repJ<-autoplot(subsetByOverlaps(repjaenes,gr), aes(fill=name),geom="rect",fill="darkgray") +
-    xlim(gr)+ ggtitle("Repressed enhancers (Jaenes et al.)") + theme_bed()
-
+  p.txdb<-autoplot(txdb,aes(fill=strand),which=gr,label.size=1.5) + xlim(gr) +
+    scale_fill_manual(values=c("#A58AFF","#cccccccc","#00C094"))
+  p.fount <- tryPlot(fountains,gr,title="Detected fountains",fill="darkblue") + theme_bed()
+  p.activeD<-tryPlot(activedaugherty,gr,title="Active enhancers (Daugherty et al.)",fill="darkgreen") + theme_bed()
+  p.activeJ<-tryPlot(activejaenes,gr,fill="darkgreen",title="Active enhancers (Jaenes et al.)") + theme_bed()
+  p.repD<-tryPlot(repdaugherty,gr,title="Repressed enhancers (Daugherty et al.)",fill="darkgray")  + theme_bed()
+  p.repJ<-tryPlot(repjaenes,gr,title="Repressed enhancers (Jaenes et al.)",fill="darkgray")  + theme_bed()
 
   p.hic<-pyramid(exp=tev,chrom=as.character(seqnames(gr)),start=start(gr),end=end(gr),crop_y=100000) +
     ggtitle("TEVonly") + theme(legend.key.size = unit(0.2,'cm'))
@@ -317,8 +326,8 @@ for (wbid in unique(so$wormbaseID[so$diffuptx==T])) {
     ggtitle("COH-1cs") + theme(legend.key.size = unit(0.2,'cm'))
   p.hicdiff<-pyramid_difference(coh1,tev,chrom=as.character(seqnames(gr)),start=start(gr),end=end(gr),crop_y=100000) +
     ggtitle("COH-1cs - TEV") + theme(legend.position=c(0.9,0.8))
-# look at transcripts
-  pptxdb<-autoplot(subsetByOverlaps(so,gr),aes(fill=b)) +xlim(gr)+
+  # look at transcripts
+  pptxdb<-autoplot(subsetByOverlaps(so,gr,ignore.strand=T),aes(fill=b)) +xlim(gr)+
     scale_fill_gradient2(na.value="grey90") + theme(legend.key.size = unit(0.2,'cm'))+
     labs(fill="LFC")
 
@@ -326,23 +335,30 @@ for (wbid in unique(so$wormbaseID[so$diffuptx==T])) {
     plot_layout(heights=c(10,25,10,5,0.5,-2,0.5,-2,0.5,-2,0.5,-2,0.5,-2,0.1)) +
     plot_annotation(title=paste0(wbid,": ",so$publicID[so$wormbaseID==wbid]))
   ggsave(paste0(outPath,"/sleuth/sleuthDTE/hic_",wbid,".pdf"),p1,device="pdf",height=29,width=19,units="cm")
+}
 
-
-  tmp<-data.frame(subsetByOverlaps(so[so$wormbaseID==wbid],gr))
+plotList=list()
+for (wbid in unique(so$wormbaseID[so$diffuptx==T])) {
+  tmp<-data.frame(so[so$wormbaseID==wbid])
   tmp$txt<-paste0("p=",round(tmp$qval,2))
   tmp$txt[tmp$qval>0.05]<-"n.s."
 
   plotList[[wbid]]<-ggplot(tmp,aes(x=target_id,y=b,fill=b)) +
     geom_bar(stat="identity",color="black") +
-    xlab(paste0(tmp$wormbaseID, " isoforms")) + ylab(label="Log<sub>2</sub>FC") +
+    ggtitle(paste0(tmp$wormbaseID[1],": ",tmp$publicID)) + ylab(label="Log<sub>2</sub>FC") +
     geom_errorbar(aes(ymin=b-se_b,ymax=b+se_b),width=0.2) +
     geom_hline(yintercept=0) + scale_fill_gradient2() +
-    geom_text(aes(y=0,label=txt))
+    geom_text(aes(y=0,label=txt)) +
+    theme(legend.key.size = unit(0.8,'cm'),
+          axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    labs(fill="LFC")
 }
 
-
-
-
+library(gridExtra)
+p<-gridExtra::marrangeGrob(grobs=plotList,ncol=2,nrow=2)
+pdf(paste0(outPath,"/sleuth/sleuthDTE/sleuthDTE_barplot.pdf"),paper="a4",height=10,width=10)
+  print(p)
+dev.off()
 
 # TODO: DTU analysis
 #https://bioconductor.org/packages/release/workflows/vignettes/rnaseqDTU/inst/doc/rnaseqDTU.html#getting-help
