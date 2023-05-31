@@ -40,6 +40,10 @@ print(paste("fastqList_file is: ",fastqList_file))
 print(paste("outPath is: ",outPath))
 print(paste("genomeDir is: ",genomeDir))
 
+
+################-
+## sleuth analysis ------
+################-
 sf_dirs<-file.path("salmon/mRNA",fastqList$sampleName)
 
 
@@ -222,6 +226,12 @@ saveRDS(gr,paste0(outPath,"/sleuth/coh1cs_DTE.RDS"))
 so<-readRDS(paste0(outPath,"/sleuth/coh1cs_DTE.RDS"))
 
 upGenes<-data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b>0) %>% dplyr::select(wormbaseID) %>% unique()
+dim(upGenes)
+write.table(upGenes,"sigGenesUp.txt")
+
+downGenes<-data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b<0) %>% dplyr::select(wormbaseID) %>% unique()
+dim(downGenes)
+write.table(downGenes,"sigGenesDown.txt")
 
 uptx<-data.frame(so) %>% dplyr::filter(wormbaseID %in% upGenes$wormbaseID) %>%
   dplyr::group_by(wormbaseID) %>%
@@ -239,7 +249,8 @@ length(so[so$diffuptx==T])
 length(unique(so[so$diffuptx==T]$wormbaseID))
 saveRDS(so[so$diffuptx==T],file=paste0(outPath,"/sleuth/coh1cs_DTE_isoformDiffratio.RDS"))
 
-
+write.table(unique(so[so$diffuptx==T]$wormbaseID),"sigGenesUp_multiTxptDiffReg.txt")
+length(unique(so[so$diffuptx==T]$wormbaseID))
 
 fountains<-readRDS("/Users/semple/Documents/MeisterLab/otherPeopleProjects/fountains/detected_fountains_equalQ.RDS")
 fountains$fountainName<-paste0("fount",1:length(fountains))
@@ -262,8 +273,9 @@ library(ggbio)
 library(GENOVA)
 library(patchwork)
 # get hic data
-tev<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/366_cis100bins_1000.cool", sample_name= "TEVonly", centromeres=F, balancing = F, verbose = T, colour="black")
-coh1<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/828_cis100bins_1000.cool", sample_name= "coh1", centromeres=F, balancing = T, verbose = T, colour="black")
+tev<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/366_cis1000bins_1000.cool", sample_name= "TEVonly", centromeres=F, balancing = T, verbose = T)
+
+coh1<-load_contacts(signal_path="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Moushumi/2021_HiCworked/828_cis1000bins_1000.cool", sample_name= "coh1", centromeres=F, balancing = T, verbose = T)
 # get fountains
 fountains<-readRDS("/Users/semple/Documents/MeisterLab/otherPeopleProjects/fountains/detected_fountains_equalQ.RDS")
 fountains$fountainName<-paste0("fount",1:length(fountains))
@@ -302,7 +314,7 @@ tryPlot<-function(gr1,gr2,title,fill){
   if(is(try(print(p1)),"try-error")) p2 else p1
 }
 
-
+wbid<-so$wormbaseID[so$publicID=="cat-1"][1]
 
 for (wbid in unique(so$wormbaseID[so$diffuptx==T])) {
 #wbid="WBGene00020131"
@@ -363,5 +375,8 @@ dev.off()
 # TODO: DTU analysis
 #https://bioconductor.org/packages/release/workflows/vignettes/rnaseqDTU/inst/doc/rnaseqDTU.html#getting-help
 #https://bioconductor.org/packages/release/bioc/vignettes/IsoformSwitchAnalyzeR/inst/doc/IsoformSwitchAnalyzeR.html
+#https://github.com/skvanburen/CompDTUReg
 
 
+write.csv(so[so$publicID %in% c("daf-16","par-1","hlh-30","casy-1","egl-44","src-1","daf-3"),],
+          paste0(outPath,"/sleuthDTE_genesOfInterest.csv"),quote=F,row.names=F)
