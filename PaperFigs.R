@@ -22,7 +22,7 @@ fileNamePrefix=paste0(scriptName,"/")
 makeDirs(outPath,dirNameList=c(paste0(c("plots/"),scriptName)))
 
 padjVal=0.05
-lfcVal=0.5
+#lfcVal=0.5
 # DEseq2 results files to use
 RNAseqDir="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216"
 
@@ -57,7 +57,7 @@ nonFount<-resize(nonFount,width=2000,fix="center")
 #'
 #' Takes a df with columns sampleName, regionType and log2FoldChange and
 #' plots violin/boxplot for the two regionTyps faceted by sampleName.
-#' t_test is performed on each pair and significance indicated. Total number
+#' wilcoxon_test is performed on each pair and significance indicated. Total number
 #' of regions used also indicated in grey on bottom.
 #' @param df with sampleName, regionType and log2FoldChange columns
 #' @param gr regions used to plot (needed to calculate width)
@@ -75,7 +75,7 @@ pairwiseBoxPlotFunc<-function(df,gr,yvar="log2FoldChange",ymin=-1,ymax=1,facet_b
 
   stat_df<-df %>% rstatix::group_by(sampleName,drop=T) %>%
     rstatix::mutate(column=get(yvar)) %>%
-    rstatix::t_test(column~regionType) %>%
+    rstatix::wilcox_test(column~regionType) %>%
     rstatix::adjust_pvalue(method="BH") %>%
     rstatix::add_significance("p.adj") %>%
     rstatix::add_xy_position(x="regionType") %>%
@@ -317,3 +317,62 @@ for(gFeat in gFeatures){
 ml<-marrangeGrob(plotList,nrow=2,ncol=3)
 ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"LFCsigGeneFeatures_fountains.pdf"),plot=ml, device="pdf",width=24,height=19,units="cm")
 
+
+############ ratio of counts
+quantFiles<-file.path("salmon/mRNA",fastqList$sampleName,"quant.sf")
+names(quantFiles)<-fastqList$sampleName
+
+# load a txdb of wormbase data and create a tx2gene object
+txdb<-loadDb(paste0(genomeDir, "/c_elegans.PRJNA13758.", genomeVer,
+                    ".annotations.sqlite"))
+k <- keys(txdb, keytype = "TXNAME")
+tx2gene <- AnnotationDbi::select(txdb, k, "GENEID", "TXNAME")
+tx2gene$TXNAME<-gsub("Transcript:","",tx2gene$TXNAME)
+tx2gene$GENEID<-gsub("Gene:","",tx2gene$GENEID)
+
+txi = tximport(quantFiles, type = "salmon", tx2gene = tx2gene,
+               txIn = TRUE, txOut = TRUE, countsFromAbundance = "dtuScaledTPM")
+
+
+## cbuild data frame from counts
+cts = txi$counts
+cts = cts[rowSums(cts) > 0,]
+range(colSums(cts)/1e6)
+
+txMeta<-getTxMetadataGR(genomeDir,genomeVer)
+txMeta<-tagOscillating(txMeta)
+
+skn1tx<-txMeta[txMeta$publicID=="skn-1"]
+
+idx<-row.names(cts) %in% skn1tx$txptSeqID
+skn1cts<-cts[idx,]
+ratios<-skn1cts[1,]/skn1cts[2,]
+df1<-data.frame(sample=names(ratios),countRatio=ratios,
+               group=as.factor(gsub("_.*","",names(ratios))))
+p1<-ggplot(df1,aes(x=group,y=countRatio))  + geom_boxplot() + geom_jitter(width=0.2)+
+  ggtitle("Ratio of counts skn-1a/skn1-b")
+
+
+
+logratios<-log(skn1cts[1,]/skn1cts[2,])
+df2<-data.frame(sample=names(logratios),logcountRatio=logratios,
+               group=as.factor(gsub("_.*","",names(logratios))))
+p2<-ggplot(df2,aes(x=group,y=logcountRatio))  + geom_boxplot() + geom_jitter(width=0.2)+
+  ggtitle("Log of ratio of counts skn-1a/skn1-b")
+
+
+drimData<-read.table(file="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216/DRIMseq_noOsc/noOsc_DTU_DRIMSeq-stageR_means_and_proportions.txt", sep = "\t", header=T)
+
+drimskn1<-drimData[drimData$publicID=="skn-1",]
+propratios<-as.numeric(drimskn1[1,15:26]/drimskn1[2,15:26])
+#row.names(propratios)<-NULL
+names(propratios)<-names(drimskn1[1,15:26]/drimskn1[2,15:26])
+propratios
+df3<-data.frame(sample=names(propratios),propRatio=propratios,
+               group=as.factor(gsub("_.*","",names(propratios))))
+#df3
+p3<-ggplot(df3,aes(x=group,y=propRatio))  + geom_boxplot() + geom_jitter(width=0.2)+
+  ggtitle("Ratio of proportions skn-1a/skn1-b")
+
+p<-ggpubr::ggarrange(p1,p2,p3,nrow=2,ncol=2)
+ggplot2::ggsave(file="skn1ratios.pdf",p,device="pdf",height=19,width=15,unit="cm")

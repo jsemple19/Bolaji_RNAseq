@@ -88,9 +88,11 @@ getTx2Gene<-function(genomeDir,genomeVer){
 #' saved into genomeDir. Metadata object uses ucsc format seqnames.
 #' @param genomeDir Directory where txdb sqlite and geneIDs files are stored.
 #' @param genomeVer Version of wormbase to use, e.g. "WS285"
+#' @param outPath where to save the metadata rds object
+#' @param format "ce11" or "wb" to choose ucsc or wormbase formatted chromosomes
 #' @return Metadata object
 #' @export
-getMetadataGR<-function(genomeDir,genomeVer,outPath=".",remake=F){
+getMetadataGR<-function(genomeDir,genomeVer,outPath=".",format="ce11"){
   if(!file.exists(paste0(genomeDir, "/c_elegans.PRJNA13758.", genomeVer, ".annotations.sqlite"))){
     makeTxDbsqlite(genomeDir, genomeVer)
   }
@@ -119,22 +121,18 @@ getMetadataGR<-function(genomeDir,genomeVer,outPath=".",remake=F){
     names(mcols(metadata))<-c("wormbaseID","publicID","sequenceID","class")
 
     table(metadata$class)
+    saveRDS(metadata,paste0(outPath,"/wbGeneGR_",genomeVer,".rds"))
 
     seqlevelsStyle(metadata)<-"ucsc"
     seqinfo(metadata)<-seqinfo(BSgenome.Celegans.UCSC.ce11::Celegans)
     metadata<-sort(metadata)
 
-    # prtncd<-metadata[metadata$class=="protein_coding_gene"]
-    # prtncd$name<-prtncd$wormbaseID
-    # export(prtncd,"proteinCodingGenes.bed")
-    #
-    # ncd<-metadata[metadata$class!="protein_coding_gene"]
-    # ncd$name<-ncd$class
-    # export(ncd,"nonCodingGenes.bed")
-
     saveRDS(metadata,paste0(outPath,"/ce11GeneGR_",genomeVer,".rds"))
-  } else {
+  }
+  if(format=="ce11"){
     metadata<-readRDS(paste0(outPath,"/ce11GeneGR_",genomeVer,".rds"))
+  } else {
+    metadata<-readRDS(paste0(outPath,"/wbGeneGR_",genomeVer,".rds"))
   }
   return(metadata)
 }

@@ -20,6 +20,7 @@ library(BSgenome.Celegans.UCSC.ce11)
 library(ggbio)
 library(patchwork)
 library(gridExtra)
+library(eulerr)
 
 theme_set(
   theme_bw()+
@@ -40,7 +41,7 @@ filterOscillating=T
 
 source(paste0(outPath,"/functions.R"))
 source(paste0(outPath,"/DESeq2_functions.R"))
-#source(paste0(outPath,"/Sleuth_functions.R"))
+source(paste0(outPath,"/DRIMseq_functions.R"))
 
 
 clrs<-getColours()
@@ -138,6 +139,7 @@ d <- dmTest(d, coef = "group828")     # Perform null hypothesis testing on the c
 
 saveRDS(d,file=paste0(outPath,"/",fileNamePrefix,"dmDSdata_coh-1.RDS"))
 
+d<-readRDS(file=paste0(outPath,"/",fileNamePrefix,"dmDSdata_coh-1.RDS"))
 
 # Single p-value per gene
 res.g = DRIMSeq::results(d)
@@ -146,6 +148,13 @@ table(is.na(res.g$pvalue))
 # Single p-value per transcript
 res.t = DRIMSeq::results(d, level = "feature")
 table(is.na(res.t$pvalue))
+
+pdf(paste0(outPath,"/",fileNamePrefix,"pvalDistribution.pdf"))
+par(mfrow=c(2,1))
+hist(res.g$pvalue,breaks=100)
+hist(res.t$pvalue,breaks=100)
+dev.off()
+par(mfrow=c(1,1))
 
 # set NAs to 1
 no.na <- function(x) ifelse(is.na(x), 1, x)
@@ -166,7 +175,12 @@ res.t<-left_join(res.t,as.data.frame(txMeta),by=join_by(feature_id==txptSeqID))
 write.table(res.g[res.g$adj_pvalue <0.05,], file=paste0(outPath,"/",fileNamePrefix,"resg_DRIMSeq_results.txt"), sep = "\t", quote = F, row.names = F, col.names = T)
 write.table(res.t[res.t$adj_pvalue <0.05,], file=paste0(outPath,"/",fileNamePrefix,"rest_DRIMSeq_results.txt"), sep = "\t", quote = F, row.names = F, col.names = T)
 
+
+res.t<-read.table(file=paste0(outPath,"/",fileNamePrefix,"rest_DRIMSeq_results.txt"), sep = "\t", header = T)
+
 res.t[res.t$adj_pvalue <0.05,]
+dim(res.t)
+length(unique(res.t$wormbaseID))
 
 ## Post-hoc filtering on the standard deviation in proportions -----
 filt = smallProportionSD(d)
@@ -251,6 +265,16 @@ drimDTU = drimDTU[order(drimDTU$wormbaseID, drimDTU$txptSeqID),]
 write.table(drimData, file=paste0(outPath,"/",fileNamePrefix,"DTU_DRIMSeq-stageR_means_and_proportions.txt"), sep = "\t", quote = F, row.names = F, col.names = T)
 write.table(drimDTU, file=paste0(outPath,"/",fileNamePrefix,"DTU_DRIMSeq-stageR_results.txt"), sep = "\t", quote = F, row.names = F, col.names = T)
 
+drimDTU<-read.table(file=paste0(outPath,"/",fileNamePrefix,"DTU_DRIMSeq-stageR_results.txt"), sep = "\t", header=T)
+
+dim(drimDTU)
+drimDTU %>% dplyr::filter(transcript<0.05) %>% dim()
+length(unique(drimDTU$wormbaseID))
+
+sum(unique(res.t$wormbaseID) %in% drimDTU$wormbaseID)
+library(ggvenn)
+ggvenn(list(drim=res.t[,"wormbaseID"], stageR=drimDTU[,"wormbaseID"]))
+
 
 # Plot the estimated proportions for one of the significant genes, where we can see evidence of switching
 #gene_id = unique(drim.padj[order(drim.padj$transcript, drim.padj$gene),]$GENEID)[1]
@@ -297,6 +321,7 @@ txdb_ce11<-loadDb(paste0(genomeDir, "/c_elegans.PRJNA13758.", genomeVer,
                     "_ce11.annotations.sqlite"))
 
 plotList<-list()
+gene_id=unique(drimData$wormbaseID[drimData$publicID=="skn-1"])
 for(gene_id in unique(drimDTU$wormbaseID)){
   publicID<-unique(txMeta$publicID[txMeta$wormbaseID==gene_id])
   p<-plotExpression(drimData, gene_id, sampleTable, isProportion = TRUE)
@@ -306,7 +331,6 @@ for(gene_id in unique(drimDTU$wormbaseID)){
   p.fount <- tryPlot(fountains,gr,title="Detected fountains",fill="darkblue") + theme_bed()
   p.activeD<-tryPlot(activedaugherty,gr,title="Active enhancers (Daugherty et al.)",fill="darkgreen") + theme_bed()
   p.activeJ<-tryPlot(activejaenes,gr,fill="darkgreen",title="Active enhancers (Jaenes et al.)") + theme_bed()
-
 
   # plotList[[gene_id]]<-p.txdb@ggplot/p.fount@ggplot/p.activeD@ggplot/p.activeJ@ggplot/p +
   #   plot_layout(heights=c(10,1,1,1,10)) +
@@ -318,10 +342,17 @@ for(gene_id in unique(drimDTU$wormbaseID)){
   plotList[[gene_id]]<- p1
 }
 
+ggplot2::ggsave(paste0(outPath,"/",fileNamePrefix,"_DTU_DRIMseq-stageR_prop_skn-1.pdf"),p1,device="pdf",height=29,width=19,units="cm")
+
 pp<-marrangeGrob(grobs=plotList,ncol=1,nrow=1)
 
-ggplot2::ggsave(paste0(outPath,"/",fileNamePrefix,"DRIMseq_prop.pdf"),pp,device="pdf",height=29,width=19,units="cm")
+ggplot2::ggsave(paste0(outPath,"/",fileNamePrefix,"_DTU_DRIMseq-stageR_prop.pdf"),pp,device="pdf",height=29,width=19,units="cm")
 
 length(unique(drimDTU$wormbaseID))
 length(unique(drimDTU$txptSeqID[drimDTU$transcript<0.05]))
 head(drimDTU)
+
+
+
+
+#

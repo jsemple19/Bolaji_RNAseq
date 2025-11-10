@@ -24,7 +24,6 @@ library(stringr)
 #library("TxDb.Celegans.UCSC.ce11.ensGene")
 
 options(bitmapType='cairo')
-
 #library(REBayes)
 # get funciton for converting gene names from WBID to publicID
 #CEFTALL_SRC <- Sys.getenv("CEFTALL_SRC", unset = "./src")

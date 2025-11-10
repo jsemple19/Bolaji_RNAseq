@@ -6,6 +6,7 @@ library(gridExtra)
 library(plyranges)
 library(rtracklayer)
 library(dplyr)
+library(rstatix)
 
 outPath="."
 scriptPath="."
@@ -73,7 +74,7 @@ pairwiseBoxPlotFunc<-function(df,gr,yvar="log2FoldChange",ymin=-1,ymax=1,facet_b
 
   stat_df<-df %>% rstatix::group_by(sampleName,drop=T) %>%
     rstatix::mutate(column=get(yvar)) %>%
-    rstatix::t_test(column~regionType) %>%
+    rstatix::wilcox_test(column~regionType) %>%
     rstatix::adjust_pvalue(method="BH") %>%
     rstatix::add_significance("p.adj") %>%
     rstatix::add_xy_position(x="regionType") %>%
@@ -86,7 +87,7 @@ pairwiseBoxPlotFunc<-function(df,gr,yvar="log2FoldChange",ymin=-1,ymax=1,facet_b
   print(stat_df,width=Inf)
 
   p<-ggplot(df,aes(x=regionType,y=get(yvar))) +
-    geom_violin(width=0.9,mapping=aes(fill=regionType))+
+    #geom_violin(width=0.9,mapping=aes(fill=regionType))+
     geom_boxplot(width=0.2,mapping=aes(fill=regionType),outlier.shape=NA)+
     scale_fill_manual(values=c("pink","lightblue"))+
     coord_cartesian(ylim=c(ymin,ymax)) + ylab(yvar) +
@@ -104,11 +105,11 @@ pairwiseBoxPlotFunc<-function(df,gr,yvar="log2FoldChange",ymin=-1,ymax=1,facet_b
 }
 
 
-stl<-resultsByGRoverlap(fileList,fountains)
+stl<-resultsByGRoverlap(fileList[3,],fountains)
 fountRes<-do.call(rbind,lapply(stl,as.data.frame))
 fountRes$regionType<-"fountain"
 
-stl<-resultsByGRoverlap(fileList[13,],nonFount)
+stl<-resultsByGRoverlap(fileList[3,],nonFount)
 nonFountRes<-do.call(rbind,lapply(stl,as.data.frame))
 nonFountRes$regionType<-"between"
 
@@ -471,3 +472,108 @@ for(gFeat in gFeatures){
 
 ml<-marrangeGrob(plotList,nrow=1,ncol=1)
 ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"LFCsigGeneFeatures_fountains.pdf"),plot=ml, device="pdf",width=29,height=19,units="cm")
+
+
+
+
+##################-
+# distance to fountains of sig genes ------
+##################-
+grp="COH1cs"
+salmon<-readRDS(file=fileList[fileList$sampleName==grp,"filePath"])
+salmon<-GRanges(salmon[!is.na(salmon$chr),])
+d<-distanceToNearest(salmon,fountains,ignore.strand=T)
+salmon$distanceToFount<-mcols(d)$distance
+subsetByOverlaps(salmon,fountains)
+
+salmon$upVdown<-"NS"
+salmon$upVdown[salmon$padj<padjVal & salmon$log2FoldChange>0]<-"up"
+salmon$upVdown[salmon$padj<padjVal & salmon$log2FoldChange<0]<-"down"
+
+salmon<-data.frame(salmon)
+
+# stat_box_data <- function(y,upper_limit=95000) {
+#   return(
+#     data.frame(
+#       y = upper_limit,
+#       label = paste('count =', length(y), '\n',
+#                     'mean =', round(mean(y), 0), '\n')
+#     )
+#   )
+# }
+
+stat_box_data <- function(y,upper_limit=90000) {
+  return(
+    data.frame(
+      y = upper_limit,
+      label = paste('n =', length(y), '\n')
+    )
+  )
+}
+
+
+
+# Statistical test
+stat.test <- salmon %>%
+  wilcox_test(distanceToFount ~ upVdown) %>%
+  add_significance()
+stat.test
+stat.test <- stat.test %>% add_xy_position(x = "upVdown")
+stat.test$p.format <- p_format(
+  stat.test$p.adj, accuracy = 0.001,
+  leading.zero = T
+)
+
+p1<-ggplot(salmon,aes(x=upVdown,y=distanceToFount)) +
+  geom_boxplot(varwidth = F,notch=F,fill="lightgrey",outlier.shape = NA) +
+  geom_hline(yintercept=median(salmon$distanceToFount[salmon$upVdown=="NS"]), colour="red",linetype=2)+
+  ylab(label="Distance to fountain") + xlab(label=element_blank()) +
+  coord_cartesian(ylim=c(0,90000))+
+  stat_summary(
+    fun.data = stat_box_data,
+    geom = "text",
+    hjust = 0.5,
+    vjust = 0.9
+  )
+
+p1<-p1 + stat_pvalue_manual(stat.test, label = "p.format",y.position=c(70000,75000,80000),
+                        tip.length=0.005)
+ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"sigGeneDistToFountains.pdf"),plot=p1, device="pdf",width=7,height=12,units="cm")
+
+
+#####################-
+# as ecdf
+#####################-
+
+options(tibble.width=Inf)
+dd1<-salmon %>%
+  dplyr::group_by(upVdown) %>%
+  dplyr::mutate(ecd=ecdf(distanceToFount)(distanceToFount))
+
+
+p<-ggplot(dd1, aes(x=distanceToFount,y=ecd,color=upVdown)) +
+  geom_line(linewidth=0.9)+
+  theme_classic() + scale_color_manual(values=c("darkred","grey","darkblue"))+
+  xlab("Distance to Fountain")+ylab("Cumulative distribution of distance")+
+  theme(legend.position=c(0.8,0.5)) +
+  theme(legend.title=element_blank(),plot.margin=unit(c(0.5,0.5,0.5,0.5), 'cm'))
++
+  theme(plot.margin=unit(c(5,1,1,1), 'cm'))
+
+p
+ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"sigGeneDistToFountains_ecd.pdf"),plot=p, device="pdf",width=10,height=8,units="cm")
+
+ks.test(dd1$ecd[dd1$upVdown=="NS"],dd1$ecd[dd1$upVdown=="down"])
+ks.test(dd1$ecd[dd1$upVdown=="NS"],dd1$ecd[dd1$upVdown=="up"])
+# both significant??
+
+
+### check for characterised enhancers in our data
+# duagherty et al enhancers
+denh<-c("C54G6.3","nhr-25","swip-10","mlt-8","gei-13")
+salmon[salmon$sequenceID %in% denh,]
+metadata[metadata$publicID %in% denh,]
+
+jenh<-c("daf-5","bro-1","hlh-2","ztf-11","bed-3")
+salmon[salmon$publicID %in% jenh,]
+metadata[metadata$publicID %in% jenh,]

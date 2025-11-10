@@ -107,6 +107,7 @@ models(so)
 oe <- sleuth_wt(so,
                 which_beta = 'condition828')
 
+saveRDS(oe,file=paste0(outPath,"/sleuth/sleuthObject.rds"))
 
 p1<-plot_pc_variance(oe)
 p2<-plot_loadings(oe,pc_input=1L)
@@ -140,7 +141,7 @@ p6<-plot_group_density(oe,
 
 
 p<-ggpubr::ggarrange(p1,p2,p2a,p3,p4,p4a,p5,p6,nrow=3,ncol=3)
-ggsave(paste0(outPath,"/sleuth/QC_sleuth.pdf"),p,dev="pdf",
+ggplot2::ggsave(paste0(outPath,"/sleuth/QC_sleuth.pdf"),p,dev="pdf",
        height=13,width=15)
 
 # output results
@@ -169,7 +170,7 @@ p<-ggplot(tmp,aes(x=label,y=b)) +
   geom_hline(yintercept=0) + coord_cartesian(ylim=c(-0.23,0.21)) +
   geom_text(aes(y=txtPos,label=txt))
 p
-ggsave(paste0(outPath,"/sleuth/skn1_bar.pdf"),p,dev="pdf",
+ggplot2::ggsave(paste0(outPath,"/sleuth/skn1_bar.pdf"),p,dev="pdf",
        height=3,width=1.5)
 
 # counts1<-sleuth_to_matrix(so,"obs_norm","est_counts")
@@ -200,11 +201,12 @@ ggsave(paste0(outPath,"/sleuth/skn1_bar.pdf"),p,dev="pdf",
 sigtxpts <- res %>%
   filter(qval < 0.05)
 
+
 #plot_transcript_heatmap(oe,
 #                        transcripts = sigtxpts$target_id[1:20])
 
 plot_bootstrap(oe,
-               target_id = sigtxpts$target_id[1],
+               target_id = sigtxpts$target_id[3],
                units = "est_counts",
                color_by = "condition")
 #so$sample_to_covariates
@@ -225,23 +227,32 @@ saveRDS(gr,paste0(outPath,"/sleuth/coh1cs_DTE.RDS"))
 #######################-
 so<-readRDS(paste0(outPath,"/sleuth/coh1cs_DTE.RDS"))
 
+data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b>0) %>% nrow()
 upGenes<-data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b>0) %>% dplyr::select(wormbaseID) %>% unique()
 dim(upGenes)
-write.table(upGenes,"sigGenesUp.txt")
+write.table(upGenes,"sigGenesUp_DTEsleuth.txt")
 
+data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b<0) %>% nrow()
 downGenes<-data.frame(so) %>% dplyr::filter(!is.na(qval),qval<0.05,b<0) %>% dplyr::select(wormbaseID) %>% unique()
 dim(downGenes)
-write.table(downGenes,"sigGenesDown.txt")
+write.table(downGenes,"sigGenesDown_DTEsleuth.txt")
+
+
+library(eulerr)
+plot(euler(c(up=upGenes,down=downGenes)))
+ggvenn(list(up=upGenes$wormbaseID,down=downGenes$wormbaseID))
+sum(upGenes$wormbaseID %in% downGenes$wormbaseID)
+
 
 uptx<-data.frame(so) %>% dplyr::filter(wormbaseID %in% upGenes$wormbaseID) %>%
   dplyr::group_by(wormbaseID) %>%
   dplyr::mutate(count=n(),notNA=which(!is.na(qval))[1],sig1=any(qval<0.05)) %>%
-  dplyr::filter(count>1) %>% mutate(isoRatio=b/b[notNA]) %>%
-  dplyr::filter(!is.na(isoRatio),abs(isoRatio)>1,sig1==T)
+  dplyr::filter(count>1) %>% mutate(isoRatio=b-b[notNA]) %>%
+  dplyr::filter(!is.na(isoRatio),isoRatio>0.1,sig1==T)
 
 print(uptx,width=Inf)
-
-
+dim(uptx)
+length(unique(uptx$wormbaseID))
 diffuptx<-unique(uptx$wormbaseID)
 so$diffuptx<-F
 so$diffuptx[so$wormbaseID %in% diffuptx]<-T
@@ -251,6 +262,26 @@ saveRDS(so[so$diffuptx==T],file=paste0(outPath,"/sleuth/coh1cs_DTE_isoformDiffra
 
 write.table(unique(so[so$diffuptx==T]$wormbaseID),"sigGenesUp_multiTxptDiffReg.txt")
 length(unique(so[so$diffuptx==T]$wormbaseID))
+
+so<-readRDS(paste0(outPath,"/sleuth/coh1cs_DTE_isoformDiffratio.RDS"))
+length(so)
+sowrong<-readRDS(paste0(outPath,"/sleuth_wrong/coh1cs_DTE_isoformDiffratio.RDS"))
+length(sowrong)
+
+ggvenn(list(sleuth=unique(so$wormbaseID),sleuth_wrong=unique(sowrong$wormbaseID)))
+
+idx<-unique(so$wormbaseID) %in% unique(sowrong$wormbaseID)
+unique(so[so$wormbaseID %in% unique(so$wormbaseID)[!idx],]$publicID)
+write.table(unique(so$wormbaseID),file=paste0(outPath,"/sleuth/coh1cs_DTE_isoformDiffratio_wbID.txt"),quote=F,sep="\n",row.names=F, col.names=F)
+
+unique(sort(so[so$wormbaseID %in% unique(so$wormbaseID)[idx],]$publicID))
+
+#ggvenn(list(sleuth=unique(so$wormbaseID),DEXseq=unique(dxr.t$groupID), DRIMseq=unique(res.t$wormbaseID)))
+#ggvenn(list(sleuth_wrong=unique(sowrong$wormbaseID),DEXseq=unique(dxr.t$groupID), DRIMseq=unique(res.t$wormbaseID)))
+#
+# ggvenn(list(sleuth=unique(so$wormbaseID),DRIMseqStageR=unique(drimDTU$wormbaseID), DEXseqStageR=unique(dexDTU$wormbaseID)))
+# ggvenn(list(sleuth_wrong=unique(sowrong$wormbaseID),DRIMseqStageR=unique(drimDTU$wormbaseID), DEXseqStageR=unique(dexDTU$wormbaseID)))
+
 
 fountains<-readRDS("/Users/semple/Documents/MeisterLab/otherPeopleProjects/fountains/detected_fountains_equalQ.RDS")
 fountains$fountainName<-paste0("fount",1:length(fountains))
@@ -339,14 +370,14 @@ for (wbid in unique(so$wormbaseID[so$diffuptx==T])) {
   p.hicdiff<-pyramid_difference(coh1,tev,chrom=as.character(seqnames(gr)),start=start(gr),end=end(gr),crop_y=100000) +
     ggtitle("COH-1cs - TEV") + theme(legend.position=c(0.9,0.8))
   # look at transcripts
-  pptxdb<-autoplot(subsetByOverlaps(so,gr,ignore.strand=T),aes(fill=b)) +xlim(gr)+
+  pptxdb<-autoplot(subsetByOverlaps(so,gr,ignore.strand=T),aes(fill=b),names.expr="target_id") +xlim(gr)+
     scale_fill_gradient2(na.value="grey90") + theme(legend.key.size = unit(0.2,'cm'))+
     labs(fill="LFC")
 
   p1<-(p.hic+p.hic1)/p.hicdiff/p.txdb@ggplot/pptxdb@ggplot/p.fount@ggplot/plot_spacer()/p.activeD@ggplot/plot_spacer()/p.activeJ@ggplot/plot_spacer()/p.repD@ggplot/plot_spacer()/p.repJ@ggplot/plot_spacer()/p.bg@ggplot +
     plot_layout(heights=c(10,25,10,5,0.5,-2,0.5,-2,0.5,-2,0.5,-2,0.5,-2,0.1)) +
     plot_annotation(title=paste0(wbid,": ",so$publicID[so$wormbaseID==wbid]))
-  ggsave(paste0(outPath,"/sleuth/sleuthDTE/hic_",wbid,".pdf"),p1,device="pdf",height=29,width=19,units="cm")
+  ggbio::ggsave(paste0(outPath,"/sleuth/sleuthDTE/hic_",wbid,".pdf"),p1,device="pdf",height=29,width=19,units="cm")
 }
 
 plotList=list()

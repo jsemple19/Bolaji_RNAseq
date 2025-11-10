@@ -149,6 +149,10 @@ keep <- rowSums(counts(dds) >= 10) >= minBatchSize
 dds <- dds[keep,]
 dds<-DESeq(dds)
 
+cnts<-counts(dds)
+colnames(cnts)<-colData(dds)$sampleName
+saveRDS(cnts,paste0(outPath,"/rds/coh1_counts.rds"))
+
 ########################
 ## get contrastsOI ------
 ########################
@@ -211,7 +215,7 @@ plotCorrelations(dds,outPath,fileNamePrefix,groupingVariable=varOI)
 print("finding significant genes")
 
 padjVal=0.05
-lfcVal=0.5
+lfcVal=0
 
 
 # Contrast between different groups: groupsOI vs controlGrp
