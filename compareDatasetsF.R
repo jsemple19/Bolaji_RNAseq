@@ -1,0 +1,292 @@
+library(GenomicRanges)
+library(ggplot2)
+library(ggpubr)
+
+outPath="."
+scriptPath="."
+source(paste0(scriptPath,"/functions.R"))
+
+theme_set(
+  theme_bw()+
+    theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank())
+)
+
+scriptName="compareDatasetsF"
+fileNamePrefix=paste0(scriptName,"/")
+makeDirs(outPath,dirNameList=c(paste0(c("plots/"),scriptName)))
+
+padjVal=0.05
+lfcVal=0.5
+# DEseq2 results files to use
+RNAseqDir="/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216"
+
+fileList1<-data.frame(sampleName=c("AMA","FLAVO","COH1cs","TOP1","TOP2","TOP1_0h","TOP1_0.5h","TOP1_1h",
+                        "TOP1_2h","TOP2_0h","TOP2_0.5h","TOP2_1h", "TOP2_2h"),
+                      filePath=paste0(RNAseqDir,c("/rds/chem_noOsc/chem_noOsc_AMAvsN2_DESeq2_fullResults.rds",
+                             "/rds/chem_noOsc/chem_noOsc_FLAVOvsN2_DESeq2_fullResults.rds",
+                             "/rds/coh1_noOsc/coh1_noOsc_COH1vsTEVonly_DESeq2_fullResults.rds",
+                             "/rds/top1top2_noOsc/top1top2_noOsc_Top1AUXvsTIRAUX_DESeq2_fullResults.rds",
+                             "/rds/top1top2_noOsc/top1top2_noOsc_Top2AUXvsTIRAUX_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux0_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux0.5_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux1_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top1vsAux2_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux0.5_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux1_DESeq2_fullResults.rds",
+                             "/rds/top1top2moraoT_noOsc/top1top2moraoT_noOsc_Top2vsAux2_DESeq2_fullResults.rds")))
+
+
+# using data modelled as factor and contrasting to auxin
+fileList<-data.frame(sampleName=c("AMA","FLAVO","COH1cs","TOP1v0","TOP2v0","TOP1_0.5hv0","TOP1_1hv0",
+                                  "TOP1_2hv0","TOP2_0.5hv0","TOP2_1hv0", "TOP2_2hv0"),
+                     filePath=paste0(RNAseqDir,
+                          c("/rds/chem_noOsc/chem_noOsc_AMAvsN2_DESeq2_fullResults.rds",
+                            "/rds/chem_noOsc/chem_noOsc_FLAVOvsN2_DESeq2_fullResults.rds",
+                            "/rds/coh1_noOsc/coh1_noOsc_COH1vsTEVonly_DESeq2_fullResults.rds",
+                            "/rds/top1top2F_noOsc/top1top2F_noOsc_Top1AUXvsTop1_DESeq2_fullResults.rds",
+                            "/rds/top1top2F_noOsc/top1top2F_noOsc_Top2AUXvsTop2_DESeq2_fullResults.rds",
+                            "/rds/top1top2moraoF_noOsc/top1top2moraoF_noOsc_Top1Aux0.5vsTop1Aux0_DESeq2_fullResults.rds",
+                            "/rds/top1top2moraoF_noOsc/top1top2moraoF_noOsc_Top1Aux1vsTop1Aux0_DESeq2_fullResults.rds",
+                            "/rds/top1top2moraoF_noOsc/top1top2moraoF_noOsc_Top1Aux2vsTop1Aux0_DESeq2_fullResults.rds",
+                            "/rds/top1top2moraoF_noOsc/top1top2moraoF_noOsc_Top2Aux0.5vsTop2Aux0_DESeq2_fullResults.rds",
+                            "/rds/top1top2moraoF_noOsc/top1top2moraoF_noOsc_Top2Aux1vsTop2Aux0_DESeq2_fullResults.rds",
+                            "/rds/top1top2moraoF_noOsc/top1top2moraoF_noOsc_Top2Aux2vsTop2Aux0_DESeq2_fullResults.rds")))
+
+
+
+###################-
+## plot Morao data as trajectories-----
+###################-
+
+moraoTop1<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP1",fileList$sampleName),]
+moraoTop2<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP2",fileList$sampleName),]
+
+
+# get ids that are significant in at lest one time point
+rl<-getListOfResults(moraoTop1,padjVal)
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+sigIDs<-unique(res$wormbaseID)
+# get full tables and filter by IDs
+rl<-getListOfResults(moraoTop1)
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+res<-res[res$wormbaseID %in% sigIDs,]
+table(res$sampleName)
+res$sampleName<-factor(res$sampleName,levels=paste0("TOP1_",c("0.5hv0","1hv0","2hv0")))
+
+p1<-ggplot(res,aes(x=sampleName,y=log2FoldChange,group=wormbaseID))+
+  geom_line(alpha=0.1) +ggtitle("TOP1 trajectories")
+p1
+
+# get ids that are significant in at lest one time point
+rl<-getListOfResults(moraoTop2,padjVal)
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+sigIDs<-unique(res$wormbaseID)
+# get full tables and filter by IDs
+rl<-getListOfResults(moraoTop2)
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+res<-res[res$wormbaseID %in% sigIDs,]
+table(res$sampleName)
+res$sampleName<-factor(res$sampleName,levels=paste0("TOP2_",c("0.5hv0","1hv0","2hv0")))
+
+p2<-ggplot(res,aes(x=sampleName,y=log2FoldChange,group=wormbaseID))+
+  geom_line(alpha=0.1) +ggtitle("TOP2 trajectories")
+
+p<-ggpubr::ggarrange(p1,p2,nrow=2)
+
+ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"MoraoTOP1TOP2trajectories.pdf"),plot=p, device="pdf",width=19,height=29,units="cm")
+
+########################-
+## pairwise correlation of Bolaji and Morao data ------
+########################-
+moraoTop1<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP1",fileList$sampleName),]
+moraoTop2<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP2",fileList$sampleName),]
+bolajiTop1<-fileList[grepl("Top1AUX",fileList$filePath),]
+bolajiTop2<-fileList[grepl("Top2AUX",fileList$filePath),]
+extraTop1<-fileList1[c(4,9),]
+extraTop2<-fileList1[c(5,13),]
+
+# Plot pairwise correlations
+corrPlotFunc<-function(data,x,y,contrastName,minScale,maxScale){
+  facet_labels<-pairwiseTable %>% group_by(contrastName) %>%
+    summarise(count=n(),label=paste0("n=",count))
+  ggplot(pairwiseTable,aes(x=log2FoldChange.x,y=log2FoldChange.y))+
+    geom_point(size=1,alpha=0.4) + facet_wrap(.~contrastName)+
+    coord_cartesian(xlim=c(minScale,maxScale), ylim=c(minScale,maxScale)) +
+    geom_smooth(method=lm,se=F,fullrange=T, size=0.7,show.legend = T) +
+    geom_hline(yintercept=0,lty=3,col="grey70",) +
+    geom_vline(xintercept=0,lty=3,col="grey70") +
+    ggpubr::stat_cor(aes(label = ..r.label..), method="spearman",
+                     cor.coef.name = c("Rs"), output.type = "text",
+                     show.legend=F,size=3,
+                     label.x=minScale+0.1, label.y=c(maxScale-0.1,maxScale-0.5)) +
+    ggpubr::stat_cor(aes(label = ..r.label..), method="pearson",
+                     cor.coef.name = c("Rp"), output.type = "text",
+                     show.legend=F,size=3,
+                     label.x=minScale+0.1, label.y=c(maxScale-0.6,maxScale-1.1),colour="red") +
+    xlab(label=element_blank()) + ylab(label=element_blank()) +
+    geom_text(data=facet_labels,aes(label=label),x=minScale+0.5,y=minScale+0.5,size=3,hjust=0.5)
+}
+
+
+# top1
+rl<-getListOfResults(rbind(bolajiTop1,moraoTop1,extraTop1))
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+
+pairwiseTable<-NULL
+for(grp in names(rl)[2:length(rl)]){
+  tmp<-res[res$sampleName=="TOP1v0",]
+  tmp<-left_join(tmp,res[res$sampleName==grp,],by="wormbaseID")
+  tmp$contrastName<-paste0("TOP1v0(Bolaji) vs ",grp)
+  if(is.null(pairwiseTable)){
+    pairwiseTable<-tmp
+  } else {
+    pairwiseTable<-rbind(pairwiseTable,tmp)
+  }
+}
+tmp<-res[res$sampleName=="TOP1_2hv0",]
+tmp<-left_join(tmp,res[res$sampleName=="TOP1_2h",],by="wormbaseID")
+tmp$contrastName<-paste0("TOP1_2hv0 vs TOP1_2h")
+pairwiseTable<-rbind(pairwiseTable,tmp)
+
+pairwiseTable$contrastName<-factor(pairwiseTable$contrastName,levels=unique(pairwiseTable$contrastName))
+
+minScale<- -3
+maxScale<- 3
+p1<-corrPlotFunc(pairwiseTable,log2FoldChange.x,log2FoldChange.y,contrastName,minScale,maxScale)
+p1
+
+
+#top2
+rl<-getListOfResults(rbind(bolajiTop2,moraoTop2,extraTop2))
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+
+pairwiseTable<-NULL
+for(grp in names(rl)[2:length(rl)]){
+  tmp<-res[res$sampleName=="TOP2v0",]
+  tmp<-left_join(tmp,res[res$sampleName==grp,],by="wormbaseID")
+  tmp$contrastName<-paste0("TOP2v0(Bolaji) vs ",grp)
+  if(is.null(pairwiseTable)){
+    pairwiseTable<-tmp
+  } else {
+    pairwiseTable<-rbind(pairwiseTable,tmp)
+  }
+}
+
+tmp<-res[res$sampleName=="TOP2_2hv0",]
+tmp<-left_join(tmp,res[res$sampleName=="TOP2_2h",],by="wormbaseID")
+tmp$contrastName<-paste0("TOP2_2hv0 vs TOP2_2h")
+pairwiseTable<-rbind(pairwiseTable,tmp)
+
+pairwiseTable$contrastName<-factor(pairwiseTable$contrastName,levels=unique(pairwiseTable$contrastName))
+
+minScale<- -3
+maxScale<- 3
+p2<-corrPlotFunc(pairwiseTable,log2FoldChange.x,log2FoldChange.y,contrastName,minScale,maxScale)
+p2
+
+p<-ggpubr::ggarrange(p1,p2,nrow=2)
+
+ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"corr_Bolaji-Morao.png"),plot=p, device="png",width=19,height=19,units="cm")
+
+########################-
+## pairwise correlation of coh-1 with Bolaji and Morao data ------
+########################-
+moraoTop1<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP1",fileList$sampleName),]
+moraoTop2<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP2",fileList$sampleName),]
+bolajiTop1<-fileList[grepl("Top1AUX",fileList$filePath),]
+bolajiTop2<-fileList[grepl("Top2AUX",fileList$filePath),]
+coh1<-fileList[grepl("COH1cs",fileList$sampleName),]
+
+
+rl<-getListOfResults(rbind(coh1,bolajiTop1,moraoTop1[2:4,]))
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+
+pairwiseTable<-NULL
+for(grp in names(rl)[2:5]){
+  tmp<-res[res$sampleName=="COH1cs",]
+  tmp<-inner_join(tmp,res[res$sampleName==grp,],by="wormbaseID")
+  tmp$contrastName<-paste0("COH1cs vs ",grp)
+  if(is.null(pairwiseTable)){
+    pairwiseTable<-tmp
+  } else {
+    pairwiseTable<-rbind(pairwiseTable,tmp)
+  }
+}
+
+pairwiseTable$contrastName<-factor(pairwiseTable$contrastName,levels=unique(pairwiseTable$contrastName))
+
+minScale<- -3
+maxScale<- 3
+p1<-corrPlotFunc(pairwiseTable,log2FoldChange.x,log2FoldChange.y,contrastName,minScale,maxScale)
+p1
+
+#top2
+rl<-getListOfResults(rbind(coh1,bolajiTop2,moraoTop2[2:4,]))
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+
+pairwiseTable<-NULL
+for(grp in names(rl)[2:5]){
+  tmp<-res[res$sampleName=="COH1cs",]
+  tmp<-inner_join(tmp,res[res$sampleName==grp,],by="wormbaseID")
+  tmp$contrastName<-paste0("COH1cs vs ",grp)
+  if(is.null(pairwiseTable)){
+    pairwiseTable<-tmp
+  } else {
+    pairwiseTable<-rbind(pairwiseTable,tmp)
+  }
+}
+
+pairwiseTable$contrastName<-factor(pairwiseTable$contrastName,levels=unique(pairwiseTable$contrastName))
+
+p2<-corrPlotFunc(pairwiseTable,log2FoldChange.x,log2FoldChange.y,contrastName,minScale,maxScale)
+#p2<-p2+ggtitle("Top2 (all genes)")
+p2
+
+p<-ggpubr::ggarrange(p1,p2,nrow=2)
+ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"corr_COH1vsBolaji-Morao.png"),plot=p, device="png",width=19,height=29,units="cm")
+
+
+########################-
+## pairwise correlation of ama-1 with other data ------
+########################-
+moraoTop1<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP1",fileList$sampleName),]
+moraoTop2<-fileList[grepl("top1top2morao",fileList$filePath) & grepl("TOP2",fileList$sampleName),]
+bolajiTop1<-fileList[grepl("Top1AUX",fileList$filePath),]
+bolajiTop2<-fileList[grepl("Top2AUX",fileList$filePath),]
+coh1<-fileList[grepl("COH1cs",fileList$sampleName),]
+ama<-fileList[grepl("AMA",fileList$sampleName),]
+
+
+rl<-getListOfResults(rbind(ama,moraoTop1[2:4,],moraoTop2[2:4,],bolajiTop1,bolajiTop2,coh1))
+lapply(rl,dim)
+res<-do.call(rbind,rl)
+
+pairwiseTable<-NULL
+for(grp in names(rl)[2:length(rl)]){
+  tmp<-res[res$sampleName=="AMA",]
+  tmp<-inner_join(tmp,res[res$sampleName==grp,],by="wormbaseID")
+  tmp$contrastName<-paste0("AMA vs ",grp)
+  if(is.null(pairwiseTable)){
+    pairwiseTable<-tmp
+  } else {
+    pairwiseTable<-rbind(pairwiseTable,tmp)
+  }
+}
+
+pairwiseTable$contrastName<-factor(pairwiseTable$contrastName,levels=unique(pairwiseTable$contrastName))
+
+minScale<- -5
+maxScale<- 5
+p1<-corrPlotFunc(pairwiseTable,log2FoldChange.x,log2FoldChange.y,contrastName,minScale,maxScale)
+p1
+
+ggsave(filename=paste0(outPath, "/plots/",fileNamePrefix,"corr_AMAvsCOH1-Bolaji-Morao.png"),plot=p1, device="png",width=19,height=19,units="cm")

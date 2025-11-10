@@ -1,0 +1,423 @@
+
+library("rtracklayer")
+library("GenomicRanges")
+library("ggplot2")
+library(readxl)
+library(fgsea)
+library(GSEAplot)
+library(BSgenome.Celegans.UCSC.ce11)
+
+
+theme_set(
+  theme_bw()+
+    theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.title.y=ggtext::element_markdown(),
+          axis.title.x=ggtext::element_markdown())
+)
+
+outPath="."
+genomeVer="WS285"
+genomeDir <- paste0("/Users/semple/Documents/MeisterLab/GenomeVer/",genomeVer)
+
+grp="coh1"
+filterOscillating=T
+
+source(paste0(outPath,"/functions.R"))
+source(paste0(outPath,"/DESeq2_functions.R"))
+
+
+clrs<-getColours()
+plotPDFs <- F
+
+genomeGR<-GRanges(seqnames=seqnames(Celegans)[1:6], IRanges(start=1, end=seqlengths(Celegans)[1:6]))
+
+ce11seqinfo<-seqinfo(Celegans)
+
+scriptName="compareGeneLists_diopt"
+fileNamePrefix=paste0(scriptName,"/")
+makeDirs(outPath,dirNameList=c(paste0(c("plots/"),scriptName)))
+
+padjVal=0.05
+lfcVal=0
+# DEseq2 results files to use
+RNAseqRes<-"/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216/rds/coh1_noOsc/coh1_noOsc_COH1vsTEVonly_DESeq2_fullResults.rds"
+
+metadata<-getMetadataGR(genomeDir,genomeVer,outPath)
+metadata<-tagOscillating(metadata)
+write.table(metadata$wormbaseID[metadata$class=="protein_coding_gene"],
+            paste0(outPath,"/allGeneNames.csv"),row.names=F,col.names=F,quote=F)
+
+salmon<-readRDS(RNAseqRes)
+
+### coh1 genes
+sigUp<-data.frame(Wormbase.ID=getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                                     namePadjCol="padj",
+                                                     nameLfcCol="log2FoldChange",
+                                                     direction="gt",
+                                                     chr="all", nameChrCol="chr")$wormbaseID)
+
+write.table(sigUp,file="sigUp_DEseq2.csv",row.names=F,quote=F,col.names=F)
+sigDown<-data.frame(Wormbase.ID=getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                                    namePadjCol="padj",
+                                                    nameLfcCol="log2FoldChange",
+                                                    direction="lt",
+                                                    chr="all", nameChrCol="chr")$wormbaseID)
+write.table(sigDown,file="sigDown_DEseq2.csv",row.names=F,quote=F,col.names=F)
+
+
+#### scc-1 genes
+
+scc1<-readRDS("/Users/semple/Documents/MeisterLab/papers/Moushumi1/p0.05_lfc0.5_filtCycChrAX/filtCycChrAX_X.wt.wt.0mM_scc16cs_vs_wt_DESeq2_fullResults_p0.05.rds")
+
+scc1Up<-data.frame(Wormbase.ID=getSignificantGenes(scc1, padj=padjVal, lfc=lfcVal,
+                                                  namePadjCol="padj",
+                                                  nameLfcCol="log2FoldChange",
+                                                  direction="gt",
+                                                  chr="all", nameChrCol="chr")$wormbaseID)
+
+scc1Down<-data.frame(Wormbase.ID=getSignificantGenes(scc1, padj=padjVal, lfc=lfcVal,
+                                                    namePadjCol="padj",
+                                                    nameLfcCol="log2FoldChange",
+                                                    direction="lt",
+                                                    chr="all", nameChrCol="chr")$wormbaseID)
+
+#######################-
+## diopt coverage
+#######################-
+
+#ortholist<-read_excel(paste0(outPath,"/publicData/ortholist_master.xlsx"))
+ortholist<-read.delim(paste0(outPath,"/publicData/DIOPTorthologs_worm-human_20230615.tsv"))
+length(unique(ortholist$wormbaseID)) #8228 (ortholist) -> 11821 (diopt)
+length(unique(ortholist$symbol)) #11433 (ortholist) -> 15749 (diopt)
+
+#names(ortholist)<-make.names(names(ortholist))
+length(unique(ortholist$wormbaseID[ortholist$best_score=="Yes"]))  #11821
+length(unique(ortholist$symbol[ortholist$best_score=="Yes"])) #9894
+length(unique(ortholist$symbol[ortholist$best_score_rev=="Yes"])) #15738
+
+#filtOrtholist<-ortholist[ortholist$confidence %in% c("moderate","high"),]
+filtOrtholist<-ortholist[ortholist$best_score=="Yes",]
+dim(filtOrtholist)
+idx<-filtOrtholist$wormbaseID %in% metadata$wormbaseID[metadata$oscillating=="no"]
+filtOrtholist<-filtOrtholist[idx,]
+dim(filtOrtholist)
+
+numProgs<-1
+sigHS<-list()
+sigHS[["COH-1cs.up"]]<-unique(inner_join(as.data.frame(sigUp), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+sigHS[["COH-1cs.down"]]<-unique(inner_join(as.data.frame(sigDown), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+sigHS[["SCC-1cs.up"]]<-unique(inner_join(as.data.frame(scc1Up), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+sigHS[["SCC-1cs.down"]]<-unique(inner_join(as.data.frame(scc1Down), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+
+##############-
+## Weiss .... Merkenschlager Cornelia de lange paper
+##############-
+#https://www.nature.com/articles/s41467-021-23141-9
+#Neuronal genes deregulated in Cornelia de Lange Syndrome respond to removal and re-expression of cohesin
+#Felix D. Weiss, Lesly Calderon, Yi-Fang Wang, Radina Georgieva, Ya Guo, Nevena Cvetesic, Maninder Kaur, Gopuraja Dharmalingam, Ian D. Krantz, Boris Lenhard, Amanda G. Fisher & Matthias Merkenschlager
+#Nature Communications volume 12, Article number: 2919 (2021)
+
+cdl<-read_excel("/Users/semple/Documents/MeisterLab/otherPeopleProjects/Bolaji/BolajiRNAseq_20211216/publicData/Supplementary Data 3. Gene expression from CdLS NeuN+ RNA-seq.xlsx",skip=3 )
+
+head(cdl)
+idx<-cdl$Gene.Symbol %in% filtOrtholist$symbol #7736 dipot (6008 ortholist) for 3progs from 17309
+cdl<-cdl[idx,]
+
+gseaTbl<-list()
+leadEdgeTbl<-NULL
+
+# making ranks (ranks go from high to low)
+ranks <- cdl$log2FoldChange
+names(ranks) <- cdl$Gene.Symbol
+ranks<-sort(ranks,decreasing=T)
+
+pdf(file=paste0(outPath, "/plots/",fileNamePrefix,"gseaBar", grp,
+                "_Vs_CorneliaDeLange_",numProgs,"progs.pdf"),
+    title=,
+    width=11,height=8,paper="a4r")
+par(mfrow=c(2,1))
+
+colidx<-ifelse(names(ranks) %in% sigHS[["COH-1cs.up"]],"red","black")
+barplot(ranks,col=colidx,border=NA,main=paste0("COH-1cs.down orthologs ",numProgs," program"))
+
+colidx<-ifelse(names(ranks) %in% sigHS[["COH-1cs.down"]],"red","black")
+barplot(ranks,col=colidx,border=NA,main=paste0("COH-1cs.down orthologs ",numProgs," programs"))
+#barplot(ranks[names(ranks) %in% sigHS[["COH-1cs.up"]]],col="red",border=NA,add=T)
+dev.off()
+par(mfrow=c(1,1))
+#countidx<-ifelse(names(ranks) %in% sigHS[["COH-1cs.up"]],1,0)
+#posidx<-1:length(ranks)
+
+#lines(1:length(ranks),cumsum(countidx)/length(sigHS[["COH-1cs.up"]]))
+
+fgseaRes <- fgsea(sigHS, ranks, minSize=5, maxSize = 5000)
+
+#fgseaRes[order(padj), ]
+fgseaRes
+
+gseaTbl<-plotGseaTable(sigHS, ranks, fgseaRes,gseaParam=0.1,render=F,
+                              colwidths = c(5, 3, 0.8, 0, 1.2))
+
+
+#' Custom plotEnrichment
+#'
+#' Based on code for plotEnrichment function from fgsea package
+#' @param pathway list of pathways where each item as named by the pathway it
+#' contains and has a vector of gene names.
+#' @param stats Statistical feature used to sort the genes e.g. LFC, ordered by
+#' magnitude
+#' @param gseaParam gsea parameter (?)
+#' @param ticksize size of tick
+#' @return plot
+#' @export
+plotEnrichment1<-function (pathway, stats, fgseaRes, pathName, gseaParam = 1, ticksSize = 0.2){
+  toPlotLFC<-data.frame(x=1:length(stats),y=stats)
+  rnk <- rank(-stats)
+  ord <- order(rnk)
+  statsAdj <- stats[ord]
+  statsAdj <- sign(statsAdj) * (abs(statsAdj)^gseaParam)
+  statsAdj <- statsAdj/max(abs(statsAdj))
+  pathway <- unname(as.vector(na.omit(match(pathway, names(statsAdj)))))
+  pathway <- sort(pathway)
+  gseaRes <- calcGseaStat(statsAdj, selectedStats = pathway,
+                          returnAllExtremes = TRUE)
+  bottoms <- gseaRes$bottoms
+  tops <- gseaRes$tops
+  n <- length(statsAdj)
+  xs <- as.vector(rbind(pathway - 1, pathway))
+  ys <- as.vector(rbind(bottoms, tops))
+  toPlot <- data.frame(x = c(0, xs, n + 1), y = c(0, ys, 0))
+  diff <- (max(tops) - min(bottoms))/8
+  x = y = NULL
+  g <- ggplot(toPlot, aes(x = x, y = y)) + geom_point(color = "green",
+                                                      size = 0.1) +
+    geom_hline(yintercept = max(tops), colour = "red", linetype = "dashed") +
+    geom_hline(yintercept = min(bottoms), colour = "red", linetype = "dashed") +
+    geom_hline(yintercept = 0, colour = "black") +
+    geom_line(color = "green") + theme_bw() +
+    geom_segment(data = data.frame(x = pathway), mapping = aes(x = x, y = -diff/2, xend = x, yend = diff/2), size = ticksSize,
+                 alpha=0.3,color="darkgreen") +
+    theme(panel.border = element_blank(), panel.grid.minor = element_blank()) +
+    labs(x = "Rank", y = "Enrichment score")
+  g<-g+labs(title=paste0("CdLS enrichment of ",pathName, " genes")) +
+    geom_vline(xintercept=sum(sort(stats)>0), colour="grey40")+
+    annotate("text", x=length(stats)*0.75, y=fgseaRes[pathway==pathName,ES]*0.9,
+             label= paste(paste(paste(c("padj","NES","size"),
+                                      fgseaRes[pathway==pathName,c(round(padj,3),round(NES,1),size)],
+                                      sep=":"),collapse=", ")))
+  g1<-ggplot(toPlotLFC,aes(x=x, y=y)) + geom_bar(stat="identity") +
+    xlab("Rank of Log2 ( CdLS Neu+ / Control Neu+ ) High->Low") + ylab("Log2FC")
+  p<-ggpubr::ggarrange(g,g1,nrow=2,heights=c(2,1))
+  p
+
+  }
+
+
+
+gseaList<-list()
+#barplot(sort(ranks, decreasing = T))
+for (pathName in unlist(fgseaRes[,"pathway"])) {
+  gseaList[[pathName]]<-plotEnrichment1(sigHS[[pathName]], ranks,fgseaRes,pathName) #+
+    # labs(title=paste0("CdLS enrichment of ",pathName, " genes")) +
+    # geom_vline(xintercept=sum(sort(ranks)>0), colour="grey40")+
+    # annotate("text", x=length(ranks)*0.75, y=fgseaRes[pathway==pathName,ES]*0.9,
+    #          label= paste(paste(paste(c("padj","NES","size"),
+    #          fgseaRes[pathway==pathName,c(round(padj,3),round(NES,1),size)],
+    #                                   sep=":"),collapse=", ")))
+}
+pdf(file=paste0(outPath, "/plots/",fileNamePrefix,"gsea", grp,
+                "_Vs_CorneliaDeLange_",numProgs,"progs.pdf"),
+    title=,
+    width=5,height=10,paper="a4")
+p<-gridExtra::marrangeGrob(grobs=gseaList, nrow=2, ncol=1)
+print(p)
+dev.off()
+
+####################-
+## correlation
+####################-
+
+sigUp<-data.frame(getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                                  namePadjCol="padj",
+                                                  nameLfcCol="log2FoldChange",
+                                                  direction="gt",
+                                                  chr="all", nameChrCol="chr"))
+
+
+sal<-inner_join(as.data.frame(salmon),ortholist[ortholist$No..of.Programs>=numProgs,],by=join_by("wormbaseID"=="WormBase.ID"))
+
+ij<-inner_join(sal,cdl,by=join_by("HGNC.Symbol"=="Gene.Symbol"))
+
+plot(ij$log2FoldChange.y,ij$log2FoldChange.x,xlab=)
+abline(v=0,h=0)
+
+# Bin size control + color palette
+ggplot(ij, aes(x=log2FoldChange.y, y=log2FoldChange.x) ) +
+  geom_bin2d(bins = 150) +
+  scale_fill_continuous(type = "viridis") +
+  theme_bw() + ylab(label="CdLS LFC") + xlab(label="COH-1cs LFC")+
+  geom_hline(yintercept=0) + geom_vline(xintercept=0)
+
+
+with(ij[which(abs(ij$log2FoldChange.x) > 0.1 | abs(ij$log2FoldChange.y) > 0.1),],cor(log2FoldChange.x,log2FoldChange.y,method = "spearman"))
+with(ij[which(abs(ij$log2FoldChange.x) > 0.1 | abs(ij$log2FoldChange.y) > 0.1),],cor(log2FoldChange.x,log2FoldChange.y,method = "pearson"))
+
+
+##################-
+## GSEAplot package
+##################-
+# GSEAplot uses original algorithm - starts with raw counts and does permutations. It orders
+# genes by the signal to noise ratio
+# https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150118
+salmon<-readRDS(RNAseqRes)
+
+
+sigUp<-data.frame(Wormbase.ID=getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                                  namePadjCol="padj",
+                                                  nameLfcCol="log2FoldChange",
+                                                  direction="gt",
+                                                  chr="all", nameChrCol="chr")$wormbaseID)
+
+sigDown<-data.frame(Wormbase.ID=getSignificantGenes(salmon, padj=padjVal, lfc=lfcVal,
+                                                    namePadjCol="padj",
+                                                    nameLfcCol="log2FoldChange",
+                                                    direction="lt",
+                                                    chr="all", nameChrCol="chr")$wormbaseID)
+
+sigHS<-list()
+sigHS[["COH-1cs.up"]]<-unique(inner_join(as.data.frame(sigUp), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+sigHS[["COH-1cs.down"]]<-unique(inner_join(as.data.frame(sigDown), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+sigHS[["SCC-1cs.up"]]<-unique(inner_join(as.data.frame(scc1Up), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+sigHS[["SCC-1cs.down"]]<-unique(inner_join(as.data.frame(scc1Down), filtOrtholist,by=join_by("Wormbase.ID"=="wormbaseID"))$symbol)
+
+
+options(timeout = max(300, getOption("timeout")))
+
+cdlsurl<-"https://ftp.ncbi.nlm.nih.gov/geo/series/GSE150nnn/GSE150118/suppl/GSE150118_CdLS.NeuN.positive_GeneCounts.csv.gz"
+download.file(cdlsurl,
+              destfile=paste0(outPath,"/publicData/",basename(cdlsurl)))
+system(paste0("gunzip ",outPath,"/publicData/",basename(cdlsurl)))
+cdl<-read.csv(paste0(outPath,"/publicData/",gsub("\\.gz$","",basename(cdlsurl))),
+              row.names=1)
+head(cdl)
+dim(cdl)
+
+# manually annotating phenotypes from GEO:
+controlPatients<-c("X5345","X4788","X1739","SD047_15","SD023_08","SD030_11")
+cdlsPatients<-c("X2082","CDL_380P","CDL_744P","CDL_764P")
+
+cdl<-cdl[,c(cdlsPatients,controlPatients)]
+
+#filter table for genes with orthologs in worm and make expression input
+expr.input<-cdl[row.names(cdl) %in% filtOrtholist$symbol,]
+dim(expr.input)#9451
+
+# make phenotype input
+phenotypes<-ifelse(colnames(cdl) %in% cdlsPatients,"CdLS","Ctrl")
+pheno.input=create_phenoinput(phenotypes)
+pheno.input
+gene.set.input<-create_geneset_db(sigHS)
+
+pp = GSEAplots(input.ds.name=expr.input,
+               input.cls.name=pheno.input,
+               gene.set.input=gene.set.input,
+               doc.string="GSEA_plots",
+               nperm=1000,
+               abs.val=F,
+               bar_percent=0.1,
+               gap_percent=0.1,
+               under_percent=0.1,
+               upper_percent=0.1,
+               color_line="black",
+               color_tick="black")
+
+names(pp)
+
+pheno.input
+pp$report1
+pp$report2
+
+
+phe=4
+
+data1<-pp$ES[[phe]]
+enrich_ind=which(data1$EStag==1)
+d=data.frame(x=enrich_ind, y=matrix(min(data1$RES)-0.12,length(enrich_ind),1),
+             vx=matrix(-0.8,length(enrich_ind),1), vy=matrix(0.04,length(enrich_ind),1))
+p <- ggplot(data1, aes(index,RES))+geom_line(col="black")
+p <- p+geom_segment(data=d, mapping=aes(x=x, y=y, xend=x+vx, yend=y+vy),col="black",alpha=0.3)
+p <- p+theme_classic()
+p <- p+ggtitle(names(pp$gene.set.reference.matrix)[[phe]])
+print(p)
+
+# calculate signal2noise (hacked from documentation and function code)
+s2n<-list()
+s2n[[paste0("mean_",pheno.input$phen[1])]]<-rowMeans(expr.input[pheno.input$class.v==0])
+s2n[[paste0("mean_",pheno.input$phen[2])]]<-rowMeans(expr.input[pheno.input$class.v==1])
+s2n[[paste0("sd_",pheno.input$phen[1])]]<-apply(expr.input[pheno.input$class.v==0],1,sd)
+s2n[[paste0("sd_",pheno.input$phen[2])]]<-apply(expr.input[pheno.input$class.v==1],1,sd)
+s2n<-data.frame(do.call(cbind,s2n))
+head(s2n)
+
+s2n$sd_CdLS <- ifelse(0.2 * abs(s2n$mean_CdLS) < s2n$sd_CdLS, s2n$sd_CdLS, 0.2 * abs(s2n$mean_CdLS))
+s2n$sd_CdLS <- ifelse(s2n$sd_CdLS == 0, 0.2, s2n$sd_CdLS)
+s2n$sd_Ctrl <- ifelse(0.2 * abs(s2n$mean_Ctrl) < s2n$sd_Ctrl, s2n$sd_Ctrl, 0.2 * abs(s2n$mean_Ctrl))
+s2n$sd_Ctrl <- ifelse(s2n$sd_Ctrl == 0, 0.2, s2n$sd_Ctrl)
+
+signal2noise<-(s2n$mean_CdLS-s2n$mean_Ctrl)/(s2n$sd_CdLS+s2n$sd_Ctrl)
+names(signal2noise)<-row.names(expr.input)
+
+idxOrd<-match(data1$gene.symbol,names(signal2noise))
+
+head(expr.input[idxOrd,],10)
+tail(expr.input[idxOrd,],10)
+
+head(signal2noise[idxOrd],10)
+tail(signal2noise[idxOrd],10)
+head(data1,10)
+tail(data1,10)
+
+### yes! genes are ordered by signal to noise
+
+#########################-
+## publically available datasets
+#########################-
+cdl<-read.csv(paste0(outPath,"/publicData/",gsub("\\.gz$","",basename(cdlsurl))),
+              row.names=1)
+head(cdl)
+dim(cdl)
+
+# manually annotating phenotypes from GEO:
+controlPatients<-c("X5345","X4788","X1739","SD047_15","SD023_08","SD030_11")
+cdlsPatients<-c("X2082","CDL_380P","CDL_744P","CDL_764P")
+
+cdl<-cdl[,c(cdlsPatients,controlPatients)]
+
+#filter table for genes with orthologs in worm and make expression input
+expr.input<-cdl
+dim(expr.input)
+
+
+data(key)
+head(key)
+descriptive_names=database_key("all")
+descriptive_names
+filename=database_key("curated canonical pathways")
+filename
+data(C2.cp.gs)
+setsList=get_genesets(C2.cp.biocarta.gs)
+sets=C2.cp.gs
+
+pp1 = GSEAplots(input.ds.name=expr.input,
+               input.cls.name=pheno.input,
+               gene.set.input=sets,
+               doc.string="GSEA_plots",
+               nperm=1000,
+               abs.val=F,
+               bar_percent=0.1,
+               gap_percent=0.1,
+               under_percent=0.1,
+               upper_percent=0.1,
+               color_line="black",
+               color_tick="black")
